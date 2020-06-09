@@ -1,10 +1,15 @@
 ﻿param (
     [string]$LOGGING = "NO"    
 )
+# $LOGGING = 'YES'
 CLS
 if ($LOGGING -eq "YES") {$log = $true} else {$log = $false}
+if ($log) {
+    $thisdate = Get-Date
+    &{Write-Warning "==> START $thisdate"}  6>&1 5>&1  4>&1 3>&1 2>&1 > $logfile
+}
 
-$scriptversion = "1.0"
+$scriptversion = "1.1"
 $scripterror = $false
 
 function WriteXmlToScreen ([xml]$xml)
@@ -23,13 +28,12 @@ function WriteXmlToScreen ([xml]$xml)
 $logfile = "D:\AartenHetty\OneDrive\ArpA\Sensor.log"
 
 if ($log) {   
-    &{Write-Warning "==> Script Version: $scriptversion"}  6>&1 5>&1  4>&1 3>&1 2>&1 > $logfile
+    &{Write-Warning "==> Script Version: $scriptversion"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
 } 
 
-# Execute ARP-A command
 try {
     if ($log) {
-        &{Write-Warning "==> Execute ARP-A command"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+        &{Write-Warning "==> Get IP/Mac address from this computer"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
     }
     $ComputerName = $env:computername
     $OrgSettings = Get-WmiObject Win32_NetworkAdapterConfiguration -ComputerName $ComputerName -EA Stop | ? { $_.IPEnabled }
@@ -44,7 +48,7 @@ catch {
     }
     $scripterror = $true
     $errortext = $error[0]
-    $scripterrormsg = "Truncate ARP database failed - $errortext"
+    $scripterrormsg = "Getting IP/MAC address failed - $errortext"
     
 }
 
@@ -86,6 +90,9 @@ if (!$scripterror) {
 
     if (!$scripterror) { 
         try {
+            if ($log) {
+                &{Write-Warning "==> Give ARP -A command and fill ARP table in PRTG database"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+            }
             $arpa = (arp -a) 
             foreach ($line in $arpa) {
                 # Write-Warning "Line: $line"
@@ -108,6 +115,9 @@ if (!$scripterror) {
             }
         }
         catch {
+            if ($log) {
+                &{Write-Warning "==> Filling ARP table failed"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+            }
             $scripterror = $true
             $errortext = $error[0]
             $scripterrormsg = "Fill ARP database failed - $errortext"
@@ -118,6 +128,9 @@ if (!$scripterror) {
 # Check the IP's and MAC adresseses via LEFT JOIN
 
 if (!$scripterror) {
+    if ($log) {
+        &{Write-Warning "==> Run SQL query (left join) to determine discrepancies"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+    }
     $query = "SELECT [Naam]
           ,db.[IPaddress]
           ,db.[MACaddress] as dbMACaddress
@@ -133,8 +146,12 @@ $resultlist = @()
 $somethingrotten = $false
 
 if (!$scripterror) {
+    if ($log) {
+        &{Write-Warning "==> Determine status per IP"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+    }
 
     foreach ($entry in $joinresult) {
+        
         if (!($entry.IPaddress.Trim() -match "^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")) {
             # NO ip address. Just check for numerics. No check on valid range (0-255) needed
             # don't add it to list
@@ -177,6 +194,10 @@ if (!$scripterror) {
 
 
 #$resultlist | Out-GridView
+
+if ($log) {
+    &{Write-Warning "==> Create XML"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+}
 
 $total = 0
 $nrofactive = 0
@@ -293,6 +314,15 @@ else {
     
 [void]$xmldoc.Appendchild($PRTG)
 
+if ($log) {
+    &{Write-Warning "==> Write XML"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+}
+
 WriteXmlToScreen $xmldoc
+
+if ($log) {
+    $thisdate = Get-Date
+    &{Write-Warning "==> END $thisdate"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+}
 
 
