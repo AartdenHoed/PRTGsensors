@@ -4,12 +4,13 @@
 # $LOGGING = 'YES'
 CLS
 if ($LOGGING -eq "YES") {$log = $true} else {$log = $false}
+$logfile = "D:\AartenHetty\OneDrive\ArpA\Sensor.log"
 if ($log) {
     $thisdate = Get-Date
     &{Write-Warning "==> START $thisdate"}  6>&1 5>&1  4>&1 3>&1 2>&1 > $logfile
 }
 
-$scriptversion = "1.1"
+$scriptversion = "1.6"
 $scripterror = $false
 
 function WriteXmlToScreen ([xml]$xml)
@@ -25,7 +26,7 @@ function WriteXmlToScreen ([xml]$xml)
     Write-Host $StringWriter.ToString();
 }
 
-$logfile = "D:\AartenHetty\OneDrive\ArpA\Sensor.log"
+
 
 if ($log) {   
     &{Write-Warning "==> Script Version: $scriptversion"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
@@ -36,7 +37,7 @@ try {
         &{Write-Warning "==> Get IP/Mac address from this computer"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
     }
     $ComputerName = $env:computername
-    $OrgSettings = Get-WmiObject Win32_NetworkAdapterConfiguration -ComputerName $ComputerName -EA Stop | ? { $_.IPEnabled }
+    $OrgSettings = Get-WmiObject Win32_NetworkAdapterConfiguration -ComputerName $ComputerName -EA Stop | ? { $_.DNSDomain -eq "fritz.box" }
     $myip = $OrgSettings.IPAddress[0]
 
     $ip = (([ipaddress] $myip).GetAddressBytes()[0..2] -join ".") + "."
@@ -69,8 +70,8 @@ if (!$scripterror) {
         if ($log) {
             &{Write-Warning "==> Insert this computer in ARP table"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
         }
-                $a = getmac | Where-Object { $_ -match '\\Device\\Tcpip'}
-        $mymac = $a.Split()[0].Replace("-",":")
+        $a = Get-NetAdapter | ? {$_.Name -eq "Wi-Fi"}
+        $mymac = $a.MacAddress.Replace("-",":")
         $query = "INSERT INTO [dbo].[ARP] ([IPaddress],[MACaddress]) VALUES('" + 
                     $myip + "','"+
                     $mymac + "')"
@@ -87,42 +88,43 @@ if (!$scripterror) {
         $scripterrormsg = "Truncate ARP database failed - $errortext"
     
     }
+}
 
-    if (!$scripterror) { 
-        try {
-            if ($log) {
-                &{Write-Warning "==> Give ARP -A command and fill ARP table in PRTG database"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
-            }
-            $arpa = (arp -a) 
-            foreach ($line in $arpa) {
-                # Write-Warning "Line: $line"
-                $words =  $line.TrimStart() -split '\s+'
-                $thisIP = $words[0].Trim()
-                if ($thisIP -match $ip) {
-                    $thisMac = $words[1] 
-
-                    if (!($thisMac -eq "---" -or $thisMac -eq "Address" -or $thisMac -eq $null -or $thisMac -eq "ff-ff-ff-ff-ff-ff")) {
-                        $thisMac = $thisMac.Replace("-",":")
-                        $query = "INSERT INTO [dbo].[ARP] ([IPaddress],[MACaddress]) VALUES('" + 
+if (!$scripterror) { 
+    try {
+        if ($log) {
+            &{Write-Warning "==> Give ARP -A command and fill ARP table in PRTG database"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+        }
+        $arpa = (arp -a) 
+        foreach ($line in $arpa) {
+            # Write-Warning "Line: $line"
+            $words =  $line.TrimStart() -split '\s+'
+            $thisIP = $words[0].Trim()
+            if ($thisIP -match $ip) {
+                $thisMac = $words[1] 
+                # Write-Warning "ThisMac: $thisMac"
+                if (!(($thisMac -eq "---") -or ($thisMac -eq "Address") -or ($thisMac -eq $null) -or ($thisMac -eq "ff-ff-ff-ff-ff-ff") -or ($thisMac -eq "static"))) {
+                    $thisMac = $thisMac.Replace("-",":")
+                    $query = "INSERT INTO [dbo].[ARP] ([IPaddress],[MACaddress]) VALUES('" + 
                                     $thisip + "','"+
                                     $thismac + "')"
-                        invoke-sqlcmd -ServerInstance ".\SQLEXPRESS" -Database "PRTG" `
+                    invoke-sqlcmd -ServerInstance ".\SQLEXPRESS" -Database "PRTG" `
                             -Query "$query" `
                             -ErrorAction Stop
-                    }
-               
                 }
+               
             }
-        }
-        catch {
-            if ($log) {
-                &{Write-Warning "==> Filling ARP table failed"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
-            }
-            $scripterror = $true
-            $errortext = $error[0]
-            $scripterrormsg = "Fill ARP database failed - $errortext"
         }
     }
+    catch {
+        if ($log) {
+            &{Write-Warning "==> Filling ARP table failed"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+        }
+        $scripterror = $true
+        $errortext = $error[0]
+        $scripterrormsg = "Fill ARP database failed - $errortext"
+    }
+    
 }
 
 # Check the IP's and MAC adresseses via LEFT JOIN
@@ -132,11 +134,12 @@ if (!$scripterror) {
         &{Write-Warning "==> Run SQL query (left join) to determine discrepancies"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
     }
     $query = "SELECT [Naam]
-          ,db.[IPaddress]
+          ,db.[IPaddress] as dbIPaddress
+          ,arp.[IPaddress] as arpIPaddress
           ,db.[MACaddress] as dbMACaddress
 	      ,arp.[MACaddress] as arpMACaddress
       FROM [PRTG].[dbo].[IPadressen] db
-      left join [PRTG].[dbo].[ARP] arp on db.IPaddress = arp.IPaddress order by db.IPaddress"
+      full outer join [PRTG].[dbo].[ARP] arp on db.IPaddress = arp.IPaddress order by db.IPaddress"
     $joinresult = invoke-sqlcmd -ServerInstance ".\SQLEXPRESS" -Database "PRTG" `
                     -Query "$query" `
                     -ErrorAction Stop
@@ -152,36 +155,37 @@ if (!$scripterror) {
 
     foreach ($entry in $joinresult) {
         
-        if (!($entry.IPaddress.Trim() -match "^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")) {
-            # NO ip address. Just check for numerics. No check on valid range (0-255) needed
-            # don't add it to list
-            continue
+        if ([string]::IsNullOrEmpty($entry.dbIPaddress)) {
+             $unknownIP = $true
+             $somethingrotten = $true
         }
-    
-        if ([string]::IsNullOrEmpty($entry.Naam)) {
-            $unknownIP = $true
-            $somethingrotten = $true
-        }
-        else {
+        else { 
+            if (!($entry.dbIPaddress.Trim() -match "^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")) {
+                # NO ip address. Just check for numerics. No check on valid range (0-255) needed
+                # don't add it to list
+                continue
+            }
             $unknownIP = $false
-        }  
-        if  ([string]::IsNullOrEmpty($entry.arpMACaddress)) {
-            $IPstatus = "Inactive"
-            $wrongMAC = $false
-        }
-        else {
-            $IPstatus = "Active"
-            if ($entry.dbMACaddress.ToUpper() -eq $entry.arpMACaddress.ToUpper()) { 
+          
+            if  ([string]::IsNullOrEmpty($entry.arpMACaddress)) {
+                $IPstatus = "Inactive"
                 $wrongMAC = $false
             }
             else {
-                $wrongMAC = $true
-                $somethingrotten = $true
+                $IPstatus = "Active"
+                if ($entry.dbMACaddress.ToUpper() -eq $entry.arpMACaddress.ToUpper()) { 
+                    $wrongMAC = $false
+                }
+                else {
+                    $wrongMAC = $true
+                    $somethingrotten = $true
+                }
             }
         }
    
         $obj = [PSCustomObject] [ordered] @{Naam = $entry.Naam;
-                                            IP = $entry.IPaddress; 
+                                            dbIP = $entry.dbIPaddress; 
+                                            arpIP = $entry.arpIPaddress; 
                                             dbMAC = $entry.dbMACaddress; 
                                             arpMAC = $entry.arpMACaddress; 
                                             unknownIP = $unknownIP; 
@@ -221,10 +225,12 @@ $Unit = $xmldoc.CreateElement('Unit')
 $CustomUnit = $xmldoc.CreateElement('CustomUnit')
 $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+$ValueLookup =  $xmldoc.CreateElement('ValueLookup')
 
 $Channel.InnerText = "Overall status"
 $Unit.InnerText = "Custom"
 $Mode.Innertext = "Absolute"
+$ValueLookup.Innertext = 'OverallIPStatus'
 
 if ($scripterror) {
     $Value.Innertext = "3"
@@ -243,11 +249,17 @@ else {
 [void]$Result.AppendChild($Unit)
 [void]$Result.AppendChild($CustomUnit)
 [void]$Result.AppendChild($NotifyChanged)
+[void]$Result.AppendChild($ValueLookup)
 [void]$Result.AppendChild($Mode)
     
 [void]$PRTG.AppendChild($Result)
 
 foreach ($item in $resultlist) {
+    $useIP = $item.dbIP
+    if ([string]::IsNullOrEmpty($item.dbIP)) {
+        $useIP = $item.arpIP
+    }
+    
     $total = $total + 1
     # Report each IP as Channel
     $Result = $xmldoc.CreateElement('Result')
@@ -257,13 +269,15 @@ foreach ($item in $resultlist) {
     $CustomUnit = $xmldoc.CreateElement('CustomUnit')
     $Mode = $xmldoc.CreateElement('Mode')
     $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+    $ValueLookup =  $xmldoc.CreateElement('ValueLookup')
 
-    $ipsplit = $item.IP.Split(" .")
+    $ipsplit = $useIP.Split(" .")
     $ipnr = (“{0:d3}” -f [int]$ipsplit[3].Trim()) 
     $cname = "IP" + $ipnr
     $Channel.InnerText = $cname
     $Unit.InnerText = "Custom"
     $Mode.Innertext = "Absolute"
+    $ValueLookup.Innertext = 'IndividualIPStatus'
 
     if ($item.IPstatus -eq "Active") { 
         $thisval = 0
@@ -288,6 +302,7 @@ foreach ($item in $resultlist) {
     [void]$Result.AppendChild($Unit)
     [void]$Result.AppendChild($CustomUnit)
     [void]$Result.AppendChild($NotifyChanged)
+    [void]$Result.AppendChild($ValueLookup)
     [void]$Result.AppendChild($Mode)
     
     [void]$PRTG.AppendChild($Result)
