@@ -10,7 +10,7 @@ if ($log) {
     &{Write-Warning "==> START $thisdate"}  6>&1 5>&1  4>&1 3>&1 2>&1 > $logfile
 }
 
-$scriptversion = "1.6"
+$scriptversion = "1.7"
 $scripterror = $false
 
 function WriteXmlToScreen ([xml]$xml)
@@ -138,6 +138,7 @@ if (!$scripterror) {
           ,arp.[IPaddress] as arpIPaddress
           ,db.[MACaddress] as dbMACaddress
 	      ,arp.[MACaddress] as arpMACaddress
+          ,db.AltMAC as dbAltMAC
       FROM [PRTG].[dbo].[IPadressen] db
       full outer join [PRTG].[dbo].[ARP] arp on db.IPaddress = arp.IPaddress order by db.IPaddress"
     $joinresult = invoke-sqlcmd -ServerInstance ".\SQLEXPRESS" -Database "PRTG" `
@@ -147,6 +148,7 @@ if (!$scripterror) {
 
 $resultlist = @()
 $somethingrotten = $false
+$warning = $false
 
 if (!$scripterror) {
     if ($log) {
@@ -175,10 +177,19 @@ if (!$scripterror) {
                 $IPstatus = "Active"
                 if ($entry.dbMACaddress.ToUpper() -eq $entry.arpMACaddress.ToUpper()) { 
                     $wrongMAC = $false
+                    $altMAC = $false
                 }
                 else {
-                    $wrongMAC = $true
-                    $somethingrotten = $true
+                    if ($entry.dbMACaddress.ToUpper() -eq  $entry.dbAltMAC.ToUpper()) {
+                        $wrongMAC = $false
+                        $altMAC = $true
+                        $warning = $true
+                    }
+                    else {
+                        $wrongMAC = $true
+                        $altMAC = $false
+                        $somethingrotten = $true
+                    }
                 }
             }
         }
@@ -190,6 +201,7 @@ if (!$scripterror) {
                                             arpMAC = $entry.arpMACaddress; 
                                             unknownIP = $unknownIP; 
                                             wrongMAC = $wrongMAC; 
+                                            altMAC = $altMAC;
                                             IPstatus = $IPstatus}
         $resultlist += $obj
     
@@ -208,6 +220,7 @@ $nrofactive = 0
 $nrofinactive = 0
 $nrofunknown = 0
 $nrofwrongmac = 0
+$nrofalternates = 0
 
 
 [xml]$xmldoc = New-Object System.Xml.XmlDocument
@@ -240,7 +253,12 @@ else {
         $Value.InnerText = "2"
     } 
     else {
-        $Value.Innertext = "1"
+        if ($warning) {
+            $Value.Innertext = "1"
+        }
+        else {
+            $Value.Innertext = "0"
+        }
     }
 }
 
@@ -287,6 +305,10 @@ foreach ($item in $resultlist) {
         $thisval = 1
         $nrofinactive = $nrofinactive + 1
     }
+    if ($item.AltMAC) {
+        $thisval = 2
+        $nrofalternates = $nrofalternates + 1
+    }
     if ($item.unknownIP) {
         $thisval = 3
         $nrofunknown = $nrofunknown + 1
@@ -321,7 +343,7 @@ if ($scripterror) {
 }
 else {
     $ErrorValue.InnerText = "0"
-    $message = "Total IP's: $Total *** Active: $nrofactive *** Inactive: $nrofinactive *** Unknown IP's: $nrofunknown *** Wrong MAC adresses: $nrofwrongmac *** Script Version: $scriptversion"
+    $message = "Total IP's: $Total *** Active: $nrofactive *** Inactive: $nrofinactive *** Alternate MACs: $nrofalternates *** Unknown IP's: $nrofunknown *** Wrong MAC adresses: $nrofwrongmac *** Script Version: $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
