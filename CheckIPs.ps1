@@ -10,7 +10,7 @@ if ($log) {
     &{Write-Warning "==> START $thisdate"}  6>&1 5>&1  4>&1 3>&1 2>&1 > $logfile
 }
 
-$scriptversion = "1.7"
+$scriptversion = "1.7.1"
 $scripterror = $false
 
 function WriteXmlToScreen ([xml]$xml)
@@ -180,10 +180,15 @@ if (!$scripterror) {
                     $altMAC = $false
                 }
                 else {
-                    if ($entry.dbMACaddress.ToUpper() -eq  $entry.dbAltMAC.ToUpper()) {
-                        $wrongMAC = $false
-                        $altMAC = $true
-                        $warning = $true
+                    if (![string]::IsNullOrEmpty($entry.dbAltMAC)) {
+                        
+                        if ($entry.arpMACaddress.ToUpper() -eq  $entry.dbAltMAC.ToUpper()) {
+                            $wrongMAC = $false
+                            $altMAC = $true
+                            $warning = $true
+                        }
+                        # write-host "Bingo"
+                  
                     }
                     else {
                         $wrongMAC = $true
