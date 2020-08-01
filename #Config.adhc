@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ADHCinfo>
+	<Stagelib>
+	  <Directory Process="Copy">D:\AartenHetty\OneDrive\Staging Library\PRTGsensors</Directory>
+	</Stagelib>
+	<Target>
+	  <Directory>C:\Program Files (x86)\PRTG Network Monitor\Custom Sensors\EXEXML</Directory>
+	  <Nodes>ADHC</Nodes>
+	</Target>
+	<DSL>
+	  <Directory>D:\Software\DSL\PRTG Network Monitor\Custom Sensors\EXEXML</Directory>
+	  <Nodes>ADHC</Nodes>
+	</DSL>
+</ADHCinfo>
