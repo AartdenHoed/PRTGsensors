@@ -1,14 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ADHCinfo>
+<ADHCinfo Nodes="ADHC">
 	<Stagelib>
-	  <Directory Process="Copy">D:\AartenHetty\OneDrive\Staging Library\PRTGsensors</Directory>
+	  <Directory Build="Copy">D:\AartenHetty\OneDrive\Staging Library\PRTGsensors</Directory>
 	</Stagelib>
 	<Target>
-	  <Directory>C:\Program Files (x86)\PRTG Network Monitor\Custom Sensors\EXEXML</Directory>
-	  <Nodes>ADHC</Nodes>
+	  <Directory Deploy="Copy" Delay="0">C:\Program Files (x86)\PRTG Network Monitor\Custom Sensors\EXEXML</Directory>
 	</Target>
 	<DSL>
-	  <Directory>D:\Software\DSL\PRTG Network Monitor\Custom Sensors\EXEXML</Directory>
-	  <Nodes>ADHC</Nodes>
+	  <Directory Delay="14">D:\Software\DSL\PRTG Network Monitor\Custom Sensors\EXEXML</Directory>
 	</DSL>
 </ADHCinfo>
