@@ -3,7 +3,7 @@
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.0.2"
+$ScriptVersion = " -- Version: 1.0.3"
 
 # COMMON coding
 CLS
@@ -238,7 +238,7 @@ else {
 [void]$xmldoc.Appendchild($PRTG)
 
 if ($log) {
-    Add-Content $logfile "==> ==> Write XML"
+    Add-Content $logfile "==> Write XML"
 }
 
 WriteXmlToScreen $xmldoc
