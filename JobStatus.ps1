@@ -3,7 +3,7 @@
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.0.3"
+$ScriptVersion = " -- Version: 1.1.1"
 
 # COMMON coding
 CLS
@@ -100,7 +100,7 @@ if (!$scripterror) {
 
         foreach ($logdataset in $loglist) {
             $a = Get-Content $logdataset.FullName
-            $args = $a.Split("~")
+            $args = $a.Split("|")
             $Machine = $args[0]
             $Job = $args[1]
             $Jobstatus = $args[2]
@@ -111,7 +111,7 @@ if (!$scripterror) {
             $Total = $Total + 1;
             $Maxcode = [math]::Max($Maxcode, $Jobstatus)
             switch ($jobstatus) {
-                "0" { $Nrofnon = $Nrofnono + 1}
+                "0" { $Nrofnono = $Nrofnono + 1}
                 "3" { $NrofChangeNoact = $NrofChangeNoact + 1}
                 "6" { $NrofAction = $NrofAction + 1}
                 "9" { $NrofError = $NrofError + 1}
