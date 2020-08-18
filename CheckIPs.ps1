@@ -2,15 +2,50 @@
     [string]$LOGGING = "NO"    
 )
 # $LOGGING = 'YES'
+
+$ScriptVersion = " -- Version: 2.0"
+
+# COMMON coding
 CLS
+$InformationPreference = "Continue"
+$WarningPreference = "Continue"
+$ErrorActionPreference = "Stop"
+
+$Node = " -- Node: " + $env:COMPUTERNAME
+$d = Get-Date
+$Datum = " -- Date: " + $d.ToShortDateString()
+$Tijd = " -- Time: " + $d.ToShortTimeString()
+
+$myname = $MyInvocation.MyCommand.Name
+$p = $myname.Split(".")
+$process = $p[0]
+$FullScriptName = $MyInvocation.MyCommand.Definition
+$mypath = $FullScriptName.Replace($MyName, "")
+
+$LocalInitVar = $mypath + "InitVar.PS1"
+& "$LocalInitVar"
+
 if ($LOGGING -eq "YES") {$log = $true} else {$log = $false}
-$logfile = "D:\AartenHetty\OneDrive\ArpA\Sensor.log"
+
 if ($log) {
+    $dir = $ADHC_OutputDirectory + $ADHC_PRTGlogs
+    # Write-Host $dir
+    if (!(Test-Path $dir)) {
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        # write-Host "Not"
+    }
+    $logfile = $dir + $process + ".log" 
+
+    $Scriptmsg = "Directory " + $mypath + " -- PowerShell script " + $MyName + $ScriptVersion + $Datum + $Tijd +$Node
+    Set-Content $logfile $Scriptmsg 
+
     $thisdate = Get-Date
-    &{Write-Warning "==> START $thisdate"}  6>&1 5>&1  4>&1 3>&1 2>&1 > $logfile
+    Add-Content $logfile "==> START $thisdate"
 }
 
-$scriptversion = "1.7.1"
+# END OF COMMON CODING
+
+
 $scripterror = $false
 
 function WriteXmlToScreen ([xml]$xml)
@@ -29,12 +64,12 @@ function WriteXmlToScreen ([xml]$xml)
 
 
 if ($log) {   
-    &{Write-Warning "==> Script Version: $scriptversion"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+    Add-Content $logfile "==> Script Version: $scriptversion"
 } 
 
 try {
     if ($log) {
-        &{Write-Warning "==> Get IP/Mac address from this computer"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+        Add-Content $logfile "==> Get IP/Mac address from this computer"
     }
     $ComputerName = $env:computername
     $OrgSettings = Get-WmiObject Win32_NetworkAdapterConfiguration -ComputerName $ComputerName -EA Stop | ? { $_.DNSDomain -eq "fritz.box" }
@@ -45,7 +80,7 @@ try {
 }
 catch {
     if ($log) {
-        &{Write-Warning "==> ARP-A command failed"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+        Add-Content $logfile "==> ARP-A command failed"
     }
     $scripterror = $true
     $errortext = $error[0]
@@ -59,7 +94,7 @@ if (!$scripterror) {
 
     try { 
         if ($log) {
-        &{Write-Warning "==> Truncate ARP table"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+            Add-Content $logfile "==> Truncate ARP table"
         }
         $query = "TRUNCATE TABLE dbo.ARP" 
         invoke-sqlcmd -ServerInstance ".\SQLEXPRESS" -Database "PRTG" `
@@ -68,7 +103,7 @@ if (!$scripterror) {
         # add this computer to list (will not be in ARP -A output)
         
         if ($log) {
-            &{Write-Warning "==> Insert this computer in ARP table"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+            Add-Content $logfile "==> Insert this computer in ARP table"
         }
         $a = Get-NetAdapter | ? {$_.Name -eq "Wi-Fi"}
         $mymac = $a.MacAddress.Replace("-",":")
@@ -81,7 +116,7 @@ if (!$scripterror) {
         }
     catch {
         if ($log) {
-            &{Write-Warning "==> Truncate + initial entry in ARP table failed"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+            Add-Content $logfile "==> Truncate + initial entry in ARP table failed"
         }
         $scripterror = $true
         $errortext = $error[0]
@@ -93,7 +128,7 @@ if (!$scripterror) {
 if (!$scripterror) { 
     try {
         if ($log) {
-            &{Write-Warning "==> Give ARP -A command and fill ARP table in PRTG database"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+            Add-Content $logfile "==> Give ARP -A command and fill ARP table in PRTG database"
         }
         $arpa = (arp -a) 
         foreach ($line in $arpa) {
@@ -118,7 +153,7 @@ if (!$scripterror) {
     }
     catch {
         if ($log) {
-            &{Write-Warning "==> Filling ARP table failed"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+            Add-Content $logfile "==> Filling ARP table failed"
         }
         $scripterror = $true
         $errortext = $error[0]
@@ -131,7 +166,7 @@ if (!$scripterror) {
 
 if (!$scripterror) {
     if ($log) {
-        &{Write-Warning "==> Run SQL query (left join) to determine discrepancies"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+        Add-Content $logfile "==> Run SQL query (left join) to determine discrepancies"
     }
     $query = "SELECT [Naam]
           ,db.[IPaddress] as dbIPaddress
@@ -152,7 +187,7 @@ $warning = $false
 
 if (!$scripterror) {
     if ($log) {
-        &{Write-Warning "==> Determine status per IP"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+        Add-Content $logfile "==> Determine status per IP"
     }
 
     foreach ($entry in $joinresult) {
@@ -217,7 +252,7 @@ if (!$scripterror) {
 #$resultlist | Out-GridView
 
 if ($log) {
-    &{Write-Warning "==> Create XML"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+    Add-Content $logfile "==> Create XML"
 }
 
 $total = 0
@@ -357,14 +392,14 @@ else {
 [void]$xmldoc.Appendchild($PRTG)
 
 if ($log) {
-    &{Write-Warning "==> Write XML"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+    Add-Content $logfile "==> Write XML"
 }
 
 WriteXmlToScreen $xmldoc
 
 if ($log) {
     $thisdate = Get-Date
-    &{Write-Warning "==> END $thisdate"}  6>&1 5>&1  4>&1 3>&1 2>&1 >> $logfile
+    Add-Content $logfile "==> END $thisdate"
 }
 
 
