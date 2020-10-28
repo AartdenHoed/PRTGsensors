@@ -3,10 +3,10 @@
     [string]$myHost  = "????"  
 )
 # $LOGGING = 'YES'
-$myHost = "holiday"
+# $myHost = "holiday"
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 1.1"
+$ScriptVersion = " -- Version: 1.1.4"
 
 # COMMON coding
 CLS
@@ -89,12 +89,12 @@ if (!$scripterror) {
             Add-Content $logfile "==> Get boottime from machine $myHost"
         }
         # $boot = Invoke-Expression('systeminfo | find /i "Boot Time"')
+        $nodeisup = $true
         if ($myHost -eq $ADHC_Computer.ToUpper()) {
             $bt = Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime
             $boottime = $bt.LastBootUpTime
         }
         else {
-            $nodeisup = $true
             try {
                 $bt = Invoke-Command -ComputerName $myhost -ScriptBlock { Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime } -Credential $ADHC_Credentials
                 $boottime = $bt.LastBootUpTime
@@ -128,7 +128,7 @@ if (!$scripterror) {
          
         $now = Get-Date
         $diff = NEW-TIMESPAN –Start $boottime –End $now
-        if ($diff.Hours -GT 1) {
+        if ($diff.Hours -ge 1) {
             $checkruns = $true
         }
         else {
@@ -173,7 +173,7 @@ if (!$scripterror) {
             $Job = $args[1]
             $Timestamp = [datetime]::ParseExact($args[4],"dd-MM-yyyy HH:mm:ss",$null)
             if ($checkruns) {
-                if ($timestamp -gt $boottime.LastBootUpTime) {
+                if ($timestamp -gt $boottime) {
                     $runstatus = 0 #ok
                     $stat0 +=1
                 }
@@ -232,7 +232,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 $ValueLookup =  $xmldoc.CreateElement('ValueLookup')
 
-$Channel.InnerText = "NOde status"
+$Channel.InnerText = "Node status"
 $Unit.InnerText = "Custom"
 $Mode.Innertext = "Absolute"
 $ValueLookup.Innertext = 'NodeStatus'
