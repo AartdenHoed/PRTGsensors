@@ -3,7 +3,7 @@
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.1.2"
+$ScriptVersion = " -- Version: 1.2"
 
 # COMMON coding
 CLS
@@ -24,6 +24,11 @@ $mypath = $FullScriptName.Replace($MyName, "")
 
 $LocalInitVar = $mypath + "InitVar.PS1"
 & "$LocalInitVar"
+
+if (!$ADHC_InitSuccessfull) {
+    # Write-Warning "YES"
+    throw $ADHC_InitError
+}
 
 if ($LOGGING -eq "YES") {$log = $true} else {$log = $false}
 

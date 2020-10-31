@@ -6,7 +6,7 @@
 # $myHost = "holiday"
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 1.1.4"
+$ScriptVersion = " -- Version: 1.3"
 
 # COMMON coding
 CLS
@@ -27,6 +27,11 @@ $mypath = $FullScriptName.Replace($MyName, "")
 
 $LocalInitVar = $mypath + "InitVar.PS1"
 & "$LocalInitVar"
+
+if (!$ADHC_InitSuccessfull) {
+    # Write-Warning "YES"
+    throw $ADHC_InitError
+}
 
 if ($LOGGING -eq "YES") {$log = $true} else {$log = $false}
 
@@ -172,19 +177,19 @@ if (!$scripterror) {
             $machine = $args[0]
             $Job = $args[1]
             $Timestamp = [datetime]::ParseExact($args[4],"dd-MM-yyyy HH:mm:ss",$null)
-            if ($checkruns) {
-                if ($timestamp -gt $boottime) {
+            if ($timestamp -gt $boottime) {
                     $runstatus = 0 #ok
                     $stat0 +=1
                 }
-                else {
-                    $runstatus = 6 #late
-                    $stat6 +=1
-                }   
-            }
             else {
-                $runstatus = 2 # boot is too recent
-                $stat2 +=1
+                if ($checkruns) {                
+                    $runstatus = 6 #late
+                    $stat6 +=1                
+                }
+                else {
+                    $runstatus = 2 # boot is too recent
+                    $stat2 +=1
+                }
             }
             $Maxcode = [math]::Max($Maxcode, $runstatus)
            
@@ -239,9 +244,11 @@ $ValueLookup.Innertext = 'NodeStatus'
 
 if ($nodeisup) {
     $Value.Innertext = "0"
+    $livestat = "UP"
 } 
 else { 
    $Value.Innertext = "1"
+   $livestat = "DOWN"
 }
 
 [void]$Result.AppendChild($Channel)
@@ -333,7 +340,7 @@ if ($scripterror) {
 else {
     $ErrorValue.InnerText = "0"
     $bt = $boottime.ToString()
-    $message = "Machine $myhost booted $bt *** Total jobs: $Total *** Jobs Executed: $stat0 *** Jobs waiting to run: $Stat2 *** Jobs NOT run (error): $stat6 *** Script $scriptversion"
+    $message = "Machine $myhost (now $livestat) last booted $bt *** Total jobs: $Total *** Jobs Executed: $stat0 *** Jobs waiting to run: $Stat2 *** Jobs NOT run (error): $stat6 *** Script $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
