@@ -2,11 +2,11 @@
     [string]$LOGGING = "NO", 
     [string]$myHost  = "????"  
 )
-# $LOGGING = 'YES'
-# $myHost = "holiday"
+#$LOGGING = 'YES'
+#$myHost = "holiday"
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 1.3"
+$ScriptVersion = " -- Version: 2.0"
 
 # COMMON coding
 CLS
@@ -101,8 +101,22 @@ if (!$scripterror) {
         }
         else {
             try {
-                $bt = Invoke-Command -ComputerName $myhost -ScriptBlock { Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime } -Credential $ADHC_Credentials
-                $boottime = $bt.LastBootUpTime
+                $myjob = Invoke-Command -ComputerName $myhost `
+                    -ScriptBlock { Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime } -Credential $ADHC_Credentials `
+                    -JobName BootJob  -AsJob
+                # $bt = Invoke-Command -ComputerName $myhost -ScriptBlock { Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime } -Credential $ADHC_Credentials
+                $myjob | Wait-Job -Timeout 50 | Out-Null
+                $mystate = $myjob.state
+                $myjob | Stop-Job | Out-Null
+                Write-host $mystate
+                if ($mystate -eq "Completed") {
+                    #write-host "YES"
+                    $boottime = (Receive-Job -Name BootJob).LastBootUpTime
+                }
+                else {
+                    #write-host "NO"
+                    $nodisup = $false
+                }
             }
             catch {
                 $nodeisup = $false
