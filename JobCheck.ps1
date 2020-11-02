@@ -6,7 +6,7 @@
 #$myHost = "holiday"
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 2.0"
+$ScriptVersion = " -- Version: 2.1"
 
 # COMMON coding
 CLS
@@ -106,16 +106,25 @@ if (!$scripterror) {
                     -JobName BootJob  -AsJob
                 # $bt = Invoke-Command -ComputerName $myhost -ScriptBlock { Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime } -Credential $ADHC_Credentials
                 $myjob | Wait-Job -Timeout 50 | Out-Null
-                $mystate = $myjob.state
+                if ($myjob) { 
+                    $mystate = $myjob.state
+                } 
+                else {
+                    $mystate = "Unknown"
+                }
+                if ($log) {
+                    Add-Content $logfile "==> Remote job $myjob ended with status $mystate"
+                }
                 $myjob | Stop-Job | Out-Null
-                Write-host $mystate
+                $myjob | Remove-Job | Out-null
+                # Write-host $mystate
                 if ($mystate -eq "Completed") {
                     #write-host "YES"
                     $boottime = (Receive-Job -Name BootJob).LastBootUpTime
                 }
                 else {
                     #write-host "NO"
-                    $nodisup = $false
+                    $nodeisup = $false
                 }
             }
             catch {
