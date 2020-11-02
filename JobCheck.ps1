@@ -3,10 +3,10 @@
     [string]$myHost  = "????"  
 )
 #$LOGGING = 'YES'
-#$myHost = "holiday"
+#$myHost = "laptop-ahmrdh"
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 2.1"
+$ScriptVersion = " -- Version: 2.2"
 
 # COMMON coding
 CLS
@@ -113,10 +113,10 @@ if (!$scripterror) {
                     $mystate = "Unknown"
                 }
                 if ($log) {
-                    Add-Content $logfile "==> Remote job $myjob ended with status $mystate"
+                    $mj = $myjob.Name
+                    Add-Content $logfile "==> Remote job $mj ended with status $mystate"
                 }
-                $myjob | Stop-Job | Out-Null
-                $myjob | Remove-Job | Out-null
+                                
                 # Write-host $mystate
                 if ($mystate -eq "Completed") {
                     #write-host "YES"
@@ -126,6 +126,8 @@ if (!$scripterror) {
                     #write-host "NO"
                     $nodeisup = $false
                 }
+                $myjob | Stop-Job | Out-Null
+                $myjob | Remove-Job | Out-null
             }
             catch {
                 $nodeisup = $false
@@ -141,21 +143,35 @@ if (!$scripterror) {
         $bootfile = $ADHC_OutputDirectory + $ADHC_BootTime.Replace($ADHC_Computer, $myHost)
         $lt = Test-Path $bootfile
         if (!$lt) {
-            Set-Content $bootfile "$MyHost|01-01-2000 00:00:00" -force
+            Set-Content $bootfile "$MyHost|01-01-2000 00:00:00|01-01-2000 00:00:00" -force
         }
-        # If node is not up, get last boottime from dataset, else update dataset
+        # Read bootfile
+        $bootrec = Get-Content $bootfile
+        $bootsplit = $bootrec.Split("|")
+        $starttime = [datetime]::ParseExact($bootsplit[1],"dd-MM-yyyy HH:mm:ss",$null)
+        $stoptime = [datetime]::ParseExact($bootsplit[2],"dd-MM-yyyy HH:mm:ss",$null)
+        # If node is NOT up, get last boottime from dataset, else update dataset
+        # and Update stoptime if not already done so
         if (!$nodeisup) {           
-            $bootrec = Get-Content $bootfile
-            $bootsplit = $bootrec.Split("|")
-            $boottime = [datetime]::ParseExact($bootsplit[1],"dd-MM-yyyy HH:mm:ss",$null)
+            $boottime = $starttime            
+            if ($stoptime -lt $starttime) { # update only first time after computer down
+                $stoptime = Get-Date
+                $bootrec = "$MyHost" + "|" + $boottime.ToString("dd-MM-yyyy HH:mm:ss") + "|" + $stoptime.ToString("dd-MM-yyyy HH:mm:ss")
+                Set-Content $bootfile "$bootrec" 
+            }
+            $now = $stoptime
         }
-        else {
-            $bootrec = "$MyHost" + "|" + $boottime.ToString("dd-MM-yyyy HH:mm:ss")
-            Set-Content $bootfile "$bootrec"
-        }        
-         
-        $now = Get-Date
+        # if node is UP, update the bootfile with boottime
+        else { # update file only first time after boot
+            if ($boottime -gt $startime) {
+                $bootrec = "$MyHost" + "|" + $boottime.ToString("dd-MM-yyyy HH:mm:ss") + "|01-01-2000 00:00:00"
+                Set-Content $bootfile "$bootrec"
+            }
+            $now = Get-Date
+        }          
+        
         $diff = NEW-TIMESPAN –Start $boottime –End $now
+        # Only check job status if computer has been up for >1 hour
         if ($diff.Hours -ge 1) {
             $checkruns = $true
         }
@@ -224,7 +240,7 @@ if (!$scripterror) {
             $Total = $Total + 1; 
                     
         }
-        $resultlist | Out-gridview
+        # $resultlist | Out-gridview
         
     }
     catch {
