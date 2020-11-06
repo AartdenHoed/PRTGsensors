@@ -3,7 +3,7 @@
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 2.1"
+$ScriptVersion = " -- Version: 2.1.2"
 
 # COMMON coding
 CLS
@@ -65,12 +65,6 @@ function WriteXmlToScreen ([xml]$xml)
     Write-Host $StringWriter.ToString();
 }
 
-
-
-if ($log) {   
-    Add-Content $logfile "==> Script Version: $scriptversion"
-} 
-
 try {
     if ($log) {
         Add-Content $logfile "==> Get IP/Mac address from this computer"
@@ -83,12 +77,13 @@ try {
     $ip = $ip.TrimEnd(".")
 }
 catch {
-    if ($log) {
-        Add-Content $logfile "==> ARP-A command failed"
-    }
+    
     $scripterror = $true
     $errortext = $error[0]
     $scripterrormsg = "Getting IP/MAC address failed - $errortext"
+    if ($log) {
+        Add-Content $logfile "==> $scripterrormsg"
+    }
     
 }
 
