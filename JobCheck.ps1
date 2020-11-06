@@ -2,11 +2,11 @@
     [string]$LOGGING = "NO", 
     [string]$myHost  = "????"  
 )
-#$LOGGING = 'YES'
-#$myHost = "laptop-ahmrdh"
+$LOGGING = 'YES'
+$myHost = "laptop-ahmrdh"
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 2.2"
+$ScriptVersion = " -- Version: 2.2.1"
 
 # COMMON coding
 CLS
@@ -164,7 +164,7 @@ if (!$scripterror) {
         # if node is UP, update the bootfile with boottime
         else { # update file only first time after boot
             if ($boottime -gt $startime) {
-                $bootrec = "$MyHost" + "|" + $boottime.ToString("dd-MM-yyyy HH:mm:ss") + "|01-01-2000 00:00:00"
+                $bootrec = "$MyHost" + "|" + $boottime.ToString("dd-MM-yyyy HH:mm:ss") + "|" + $stoptime.ToString("dd-MM-yyyy HH:mm:ss")
                 Set-Content $bootfile "$bootrec"
             }
             $now = Get-Date
