@@ -3,7 +3,7 @@
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.2"
+$ScriptVersion = " -- Version: 1.3"
 
 # COMMON coding
 CLS
@@ -101,6 +101,7 @@ if (!$scripterror) {
         $NrofChangeNoact = 0
         $NrofAction = 0
         $NrofError = 0
+        $NrofNoLock = 0
         $MaxCode = 0
 
         foreach ($logdataset in $loglist) {
@@ -119,6 +120,7 @@ if (!$scripterror) {
                 "0" { $Nrofnono = $Nrofnono + 1}
                 "3" { $NrofChangeNoact = $NrofChangeNoact + 1}
                 "6" { $NrofAction = $NrofAction + 1}
+                "7" { $NrofNoLock = $NrofNoLock + 1}
                 "9" { $NrofError = $NrofError + 1}
                 default {
                     if ($log) {
@@ -234,7 +236,7 @@ if ($scripterror) {
 }
 else {
     $ErrorValue.InnerText = "0"
-    $message = "Total jobs: $Total *** No Change: $Nrofnono *** Change, no action: $NrofChangeNoact *** Action required: $NrofAction *** Jobs in error: $Nroferror *** Script Version: $scriptversion"
+    $message = "Total jobs: $Total *** No Change: $Nrofnono *** Change, no action: $NrofChangeNoact *** Action required: $NrofAction *** Failed lock: $NrofNoLock *** In error: $Nroferror *** Script Version: $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
