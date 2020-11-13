@@ -3,7 +3,7 @@
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.3"
+$ScriptVersion = " -- Version: 1.4"
 
 # COMMON coding
 CLS

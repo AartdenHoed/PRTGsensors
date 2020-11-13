@@ -6,7 +6,7 @@
 #$Ctype = "Guest"
 $Ctype = $Ctype.ToUpper()
 
-$ScriptVersion = " -- Version: 1.0"
+$ScriptVersion = " -- Version: 1.1"
 
 # COMMON coding
 CLS

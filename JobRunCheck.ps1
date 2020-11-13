@@ -2,11 +2,11 @@
     [string]$LOGGING = "NO", 
     [string]$myHost  = "????"  
 )
-$LOGGING = 'YES'
-$myHost = "laptop-ahmrdh"
-$myhost = $myhost.ToUpper()
+#$LOGGING = 'YES'
+#$myHost = "laptop-ahmrdh"
+#$myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 2.2.1"
+$ScriptVersion = " -- Version: 2.3"
 
 # COMMON coding
 CLS
