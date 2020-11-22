@@ -3,10 +3,11 @@
     [string]$myHost  = "????"  
 )
 #$LOGGING = 'YES'
-#$myHost = "laptop-ahmrdh"
-#$myhost = $myhost.ToUpper()
+#$myHost = "holiday"
 
-$ScriptVersion = " -- Version: 2.3"
+$myhost = $myhost.ToUpper()
+
+$ScriptVersion = " -- Version: 2.3.2"
 
 # COMMON coding
 CLS
@@ -147,6 +148,9 @@ if (!$scripterror) {
         }
         # Read bootfile
         $bootrec = Get-Content $bootfile
+        if (!$bootrec) {
+            $bootrec =  "$MyHost|01-01-2000 00:00:00|01-01-2000 00:00:00" 
+        }
         $bootsplit = $bootrec.Split("|")
         $starttime = [datetime]::ParseExact($bootsplit[1],"dd-MM-yyyy HH:mm:ss",$null)
         $stoptime = [datetime]::ParseExact($bootsplit[2],"dd-MM-yyyy HH:mm:ss",$null)
