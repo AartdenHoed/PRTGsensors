@@ -3,11 +3,11 @@
     [string]$myHost  = "????"  
 )
 #$LOGGING = 'YES'
-#$myHost = "holiday"
+#$myHost = "hoesto"
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 2.3.2"
+$ScriptVersion = " -- Version: 2.4.1"
 
 # COMMON coding
 CLS
@@ -88,6 +88,40 @@ catch {
     $scripterrormsg = "Reading directoy $dir failed - $errortext"
     
 }
+
+# Get Node status
+
+if (!$scripterror) {
+    try {
+        if ($log) {
+            Add-Content $logfile "==> Get NODE status for $myhost"
+        }
+        $nstat = & $ADHC_NodeInfoScript "$myHost"  "$LOGGING" 
+
+    }
+    Catch {
+        if ($log) {
+        Add-Content $logfile "==> Getting NODE status failed for $myhost"
+        }
+        $scripterror = $true
+        $errortext = $error[0]
+        $scripterrormsg = "Reading directoy $dir failed - $errortext"
+
+    }
+    finally {
+        if ($log) {
+            foreach ($m in $nstat.MessageList) {
+                $lvl = $m.Level
+                $msg = $m.Message
+                Add-COntent $logfile "($lvl) - $msg"
+
+            }
+        }
+    }
+
+}
+
+
 if (!$scripterror) {
     try {
         # get boottime of machine
@@ -95,7 +129,7 @@ if (!$scripterror) {
             Add-Content $logfile "==> Get boottime from machine $myHost"
         }
         # $boot = Invoke-Expression('systeminfo | find /i "Boot Time"')
-        $nodeisup = $true
+        $invokable = $true
         if ($myHost -eq $ADHC_Computer.ToUpper()) {
             $bt = Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime
             $boottime = $bt.LastBootUpTime
@@ -125,13 +159,13 @@ if (!$scripterror) {
                 }
                 else {
                     #write-host "NO"
-                    $nodeisup = $false
+                    $invokable = $false
                 }
                 $myjob | Stop-Job | Out-Null
                 $myjob | Remove-Job | Out-null
             }
             catch {
-                $nodeisup = $false
+                $invokable = $false
             }
             finally {
                 # Write-Host $nodeisup
@@ -156,7 +190,7 @@ if (!$scripterror) {
         $stoptime = [datetime]::ParseExact($bootsplit[2],"dd-MM-yyyy HH:mm:ss",$null)
         # If node is NOT up, get last boottime from dataset, else update dataset
         # and Update stoptime if not already done so
-        if (!$nodeisup) {           
+        if (!$invokable) {           
             $boottime = $starttime            
             if ($stoptime -lt $starttime) { # update only first time after computer down
                 $stoptime = Get-Date
@@ -184,7 +218,7 @@ if (!$scripterror) {
         }
         if ($log) {
             $bt = $boottime.ToString()
-            Add-Content $logfile "==> Boottime = $bt, Node $MyHost UP=$nodeisup"
+            Add-Content $logfile "==> Boottime = $bt, Node $MyHost INVOKABLE=$invokable"
         }
     }
     catch {
@@ -285,13 +319,13 @@ $Unit.InnerText = "Custom"
 $Mode.Innertext = "Absolute"
 $ValueLookup.Innertext = 'NodeStatus'
 
-if ($nodeisup) {
-    $Value.Innertext = "0"
-    $livestat = "UP"
+if ($invokable) {
+    $Value.Innertext = $nstat.StatusCode + 1
+    $livestat = $nstat.Status + ", Invokable"
 } 
 else { 
-   $Value.Innertext = "1"
-   $livestat = "DOWN"
+   $Value.Innertext = $nstat.StatusCode
+   $livestat = $nstat.Status + ", Not Invokable"
 }
 
 [void]$Result.AppendChild($Channel)
