@@ -3,9 +3,9 @@
      [string]$LOGGING = "NO"
 )
 #$LOGGING = 'YES'
-#$inputIp = "Hoesto"
+#$inputIp = "holiday"
 
-$ScriptVersion = " -- Version: 1.1.2"
+$ScriptVersion = " -- Version: 1.2"
 
 # COMMON coding
 CLS
@@ -25,14 +25,15 @@ $FullScriptName = $MyInvocation.MyCommand.Definition
 $mypath = $FullScriptName.Replace($MyName, "")
 
 $LocalInitVar = $mypath + "InitVar.PS1"
-& "$LocalInitVar"
+& "$LocalInitVar" -JSON Silent
 if (!$ADHC_InitSuccessfull) {
     # Write-Warning "YES"
     throw $ADHC_InitError
 }
 $MessageList = @()
 $Global:ResultObject = [PSCustomObject] [ordered] @{MessageList = $Messagelist;
-                                            IPaddress = $InputIP;
+                                            IPinput = $InputIP;
+                                            IPaddress = "n/a";
                                             MACaddress = "n/a";
                                             IPcached = $false;
                                             IPpingable = $false;
@@ -75,9 +76,6 @@ try {
     $OrgSettings = Get-WmiObject Win32_NetworkAdapterConfiguration -ComputerName $ComputerName -EA Stop | ? { $_.DNSDomain -eq "fritz.box" }
     $myip = $OrgSettings.IPAddress[0]
 
-    if ($myip -eq $InputIP) {
-        $Global:ResultObject.itsme = $true
-    }
     $a = Get-NetAdapter | ? {$_.Name -eq "Wi-Fi"}
     $mymac = $a.MacAddress.Replace("-",":")
 }
@@ -99,12 +97,32 @@ if (!$scripterror) {
             AddMessage "I" "Perform PING"
         }
         try {
-            $ping = Test-Connection -COmputerName $InputIp -Count 1
+            $ipnum = $null
+            if ($inputip -match "\w+") {
+                $ipx = [System.Net.Dns]::GetHostAddresses($InputIp.Trim())
+                if ($ipx) {
+                    write-host "ipx"
+                    $Ipnum = $ipx.IPAddressToSTring
+                    $Global:ResultObject.IPaddress = $ipnum                    
+                }
+                else {
+                    write-host "no ipx"
+                    $Global:ResultObject.IPaddress = $inputip  
+                }
+            }
+            else {
+                $Global:ResultObject.IPaddress = $inputip
+            }
+            if ($myip -eq $Global:ResultObject.IPaddress) {
+                $Global:ResultObject.itsme = $true
+            }
+            $ping = Test-Connection -COmputerName $Global:ResultObject.IPaddress -Count 1
             $Global:ResultObject.IPpingable = $true
             
         }
         catch {
             $Global:ResultObject.IPpingable = $false
+            $Global:ResultObject.IPaddress = $inputip
         }
     }
     catch {
@@ -135,7 +153,7 @@ if (!$scripterror) {
             # Write-Warning "Line: $line"
             $words =  $line.TrimStart() -split '\s+'
             $thisIP = $words[0].Trim()
-            if ($thisIP -eq $InputIp) {
+            if ($thisIP -eq $Global:ResultObject.IPaddress) {
                 $thismac = $words[1] 
                 # Write-Warning "ThisMac: $thisMac"
                 if (!(($thisMac -eq "---") -or ($thisMac -eq "Address") -or ($thisMac -eq $null) -or ($thisMac -eq "ff-ff-ff-ff-ff-ff") -or ($thisMac -eq "static"))) {
