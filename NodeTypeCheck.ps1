@@ -3,10 +3,10 @@
     [string]$Ctype = "Iets"
 )
 #$LOGGING = 'YES'
-#$Ctype = "Guest"
+#$Ctype = "CORE"
 $Ctype = $Ctype.ToUpper()
 
-$ScriptVersion = " -- Version: 1.1"
+$ScriptVersion = " -- Version: 1.2"
 
 # COMMON coding
 CLS
@@ -95,66 +95,14 @@ catch {
     }    
 }
 
-# Determin IP range
-
-try {
-    if ($log) {
-        Add-Content $logfile "==> Get IP address range"
-    }
-    $ComputerName = $env:computername
-    $OrgSettings = Get-WmiObject Win32_NetworkAdapterConfiguration -ComputerName $ComputerName -EA Stop | ? { $_.DNSDomain -eq "fritz.box" }
-    $myip = $OrgSettings.IPAddress[0]
-
-    $ip = (([ipaddress] $myip).GetAddressBytes()[0..2] -join ".") + "."
-    $ip = $ip.TrimEnd(".")
-}
-catch {
-    
-    $scripterror = $true
-    $errortext = $error[0]
-    $scripterrormsg = "Getting IP/MAC address failed - $errortext"
-    if ($log) {
-        Add-Content $logfile "==> $scripterrormsg"
-    } 
-}
-
-if (!$scripterror) { 
-    try {
-        if ($log) {
-            Add-Content $logfile "==> Give ARP -A command to get all active IP-Addresses"
-        }
-        $iplist = @()
-        $arpa = (arp -a) 
-        foreach ($line in $arpa) {
-            # Write-Warning "Line: $line"
-            $words =  $line.TrimStart() -split '\s+'
-            $thisIP = $words[0].Trim()
-            if ($thisIP -match $ip) {
-                $thisMac = $words[1] 
-                # Write-Warning "ThisMac: $thisMac"
-                if (!(($thisMac -eq "---") -or ($thisMac -eq "Address") -or ($thisMac -eq $null) -or ($thisMac -eq "ff-ff-ff-ff-ff-ff") -or ($thisMac -eq "static"))) {
-                    $iplist += $thisip   
-                }               
-            }
-        }
-    }
-    catch {        
-        $scripterror = $true
-        $errortext = $error[0]
-        $scripterrormsg = "Getting active IP addresses failed - $errortext"
-        if ($log) {
-            Add-Content $logfile "==> $scripterrormsg"
-        }
-    }
-    
-}
 $maxcode = 0
 $nrofping = 0
-$nrofactive = 0
+$nrofcached = 0
+$nrofboth = 0
 $nrofinactive = 0
 $nroftotal = 0
-$activeIPfound = $false
-$pingsuccess = $false
+$nroferror = 0
+
 
 if (!$scripterror) {
     try {
@@ -162,44 +110,39 @@ if (!$scripterror) {
             Add-Content $logfile "==> Check status of every IP with type $ctype"          
         }
         $ResultList = @()
-        # Check al entries from database against list of active IP-addresses
+        # Check al entries from database against 
         foreach ( $dbentry in $ctypelist) {
-            $nroftotal = $nroftotal + 1
-            if ($iplist -contains $dbentry.IPaddress) {
-                $ipactive = $true
-                $activeIPfound = $true
-                $maxcode = 3
-                $ipping = $false
-                try {
-                    $ping = Test-Connection -COmputerName $dbentry.IPaddress -Count 1
-                    $ipping = $true
-                    $pingsuccess = $true
-                    $maxcode = 6
-                }
-                catch {
-                    $ipping = $false
-                }
-            }
-            else {
-                $ipactive = $false
-                $ipping = $false
-            }
-            if ($ipping) { $nrofping = $nrofping + 1} 
-            if ($ipactive) {
-                $nrofactive = $nrofactive + 1 
-            } 
-            else {
-                $nrofinactive = $nrofinactive + 1
-            } 
             
+            $i = $dbentry.IPaddress 
+            $nstat = & $ADHC_NodeInfoScript "$i" "$LOGGING"
             
             $ipobj = [PSCustomObject] [ordered] @{IPname = $dbentry.Naam;
-                                            IPaddress = $dbentry.IPaddress;
-                                            IPactive = $ipactive; 
+                                            IPaddress = $nstat.IPaddress;
+                                            IPcached = $nstat.IPcached; 
                                             IPtype = $ctype;
-                                            IPping = $ipping;
-                                            }
-            $ResultList += $ipobj                
+                                            IPping = $nstat.IPpingable;
+                                            IPstatus = $nstat.Status;
+                                            IPstatusCode = $nstat.StatusCode}
+            $ResultList += $ipobj
+            $nroftotal += 1
+            switch ($nstat.StatusCode) {
+                0 { $nrofinactive += 1 } 
+                3 { $nrofcached +=1 }
+                6 { $nrofping += 1 } 
+                9 { $nrofboth +=1} 
+                12 { $nroferror +=1}
+                default {
+                    $x = $nstat.Statuscode 
+                    $scripterrormsg = "==> $x is an unknown IP statuscode" 
+                    if ($log) {
+                        Add-Content $logfile $scripterrormsg                                 
+                    }
+                    $scripterror = $true
+
+                }
+            }
+            $maxcode = [math]::max($maxcode, $nstat.Statuscode) 
+                      
         }
     }
     catch {
@@ -210,6 +153,16 @@ if (!$scripterror) {
         if ($log) {
             Add-Content $logfile "==> $scripterrormsg"
           
+        }
+    }
+    finally {
+        if ($log) {
+            foreach ($m in $nstat.MessageList) {
+                $lvl = $m.Level
+                $msg = $m.Message
+                Add-COntent $logfile "($lvl) - $msg"
+
+            }
         }
     }
 }
@@ -279,12 +232,8 @@ foreach ($item in $resultlist) {
     $Unit.InnerText = "Custom"
     $Mode.Innertext = "Absolute"
     $ValueLookup.Innertext = 'IndividualCtypeStatus'
-
-    $ipcode = 0
-    if ($item.IPactive) {$ipcode = "3"} 
-    if ($item.IPping) { $ipcode = "6"}
-    
-    $Value.Innertext = $ipcode
+           
+    $Value.Innertext = $item.IPstatusCode
 
     [void]$Result.AppendChild($Channel)
     [void]$Result.AppendChild($Value)
@@ -311,7 +260,7 @@ if ($scripterror) {
 else {
     $ErrorValue.InnerText = "0"
    
-    $message = "Nodes in group $ctype *** Total: $nroftotal *** Inactive: $nrofinactive *** Active: $nrofactive *** Pingable: $nrofping  *** Script $scriptversion"
+    $message = "Nodes in group $ctype *** Total: $nroftotal *** Inactive: $nrofinactive *** Cached: $nrofcached *** Pingable: $nrofping  *** Cached+Pingable: $nrofboth *** In error: $nroferror *** Script $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
