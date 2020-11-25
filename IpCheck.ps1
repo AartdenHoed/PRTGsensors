@@ -3,7 +3,7 @@
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 2.2"
+$ScriptVersion = " -- Version: 2.3"
 
 # COMMON coding
 CLS
@@ -208,7 +208,19 @@ if (!$scripterror) {
                 $wrongMAC = $false
             }
             else {
-                $IPstatus = "Active"
+                try {
+                    $ping = Test-Connection -COmputerName $entry.arpIPaddress.Trim() -Count 1
+                }
+                catch {
+                }
+                finally {
+                    if ($ping) {
+                        $IPstatus = "Cached, Pingable"
+                    }
+                    else {
+                        $IPstatus = "Cached, Not Pingable"
+                    }
+                }
                 if ($entry.dbMACaddress.ToUpper() -eq $entry.arpMACaddress.ToUpper()) { 
                     $wrongMAC = $false
                     $altMAC = $false
@@ -255,7 +267,8 @@ if ($log) {
 }
 
 $total = 0
-$nrofactive = 0
+$nrofcached = 0
+$nrofpingable = 0
 $nrofinactive = 0
 $nrofunknown = 0
 $nrofwrongmac = 0
@@ -336,24 +349,30 @@ foreach ($item in $resultlist) {
     $Mode.Innertext = "Absolute"
     $ValueLookup.Innertext = 'IndividualIPStatus'
 
-    if ($item.IPstatus -eq "Active") { 
-        $thisval = 0
-        $nrofactive = $nrofactive + 1
-    }
-    else {
-        $thisval = 1
-        $nrofinactive = $nrofinactive + 1
+    switch ($item.IPstatus) {
+        "Cached, Pingable" { 
+            $thisval = 0
+            $nrofpingable = $nrofpingable + 1
+        }
+        "Cached, Not Pingable" {
+            $thisval = 1
+            $nrofcached = $nrofcached + 1
+        }
+        default {
+            $thisval = 2
+            $nrofinactive = $nrofinactive + 1
+        }
     }
     if ($item.AltMAC) {
-        $thisval = 2
+        $thisval = 3
         $nrofalternates = $nrofalternates + 1
     }
     if ($item.unknownIP) {
-        $thisval = 3
+        $thisval = 4
         $nrofunknown = $nrofunknown + 1
     } 
     if ($item.wrongMAC) {
-        $thisval = 4
+        $thisval = 5
         $nrofwrongmac = $nrofwrongmac + 1
     } 
     $Value.Innertext = $thisval
@@ -382,7 +401,7 @@ if ($scripterror) {
 }
 else {
     $ErrorValue.InnerText = "0"
-    $message = "Total IP's: $Total *** Active: $nrofactive *** Inactive: $nrofinactive *** Alternate MACs: $nrofalternates *** Unknown IP's: $nrofunknown *** Wrong MAC adresses: $nrofwrongmac *** Script Version: $scriptversion"
+    $message = "Total IP's: $Total *** Cached, Not Pingable: $nrofcached *** Cached, Pingable: $nrofpingable *** Inactive: $nrofinactive *** Alternate MACs: $nrofalternates *** Unknown IP's: $nrofunknown *** Wrong MAC adresses: $nrofwrongmac *** Script Version: $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
