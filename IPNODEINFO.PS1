@@ -3,9 +3,9 @@
      [string]$LOGGING = "NO"
 )
 #$LOGGING = 'YES'
-#$inputIp = "192.168.178.205"
+#$inputIp = "Hoesto"
 
-$ScriptVersion = " -- Version: 1.0"
+$ScriptVersion = " -- Version: 1.1.2"
 
 # COMMON coding
 CLS
@@ -37,7 +37,8 @@ $Global:ResultObject = [PSCustomObject] [ordered] @{MessageList = $Messagelist;
                                             IPcached = $false;
                                             IPpingable = $false;
                                             ItsMe = $false;
-                                            Status = "Unknown"}
+                                            Status = "Unknown";
+                                            StatusCode = -1}
 function AddMessage ([string]$level, [string]$msg) {
     $msgentry = [PSCustomObject] [ordered] @{Level = $level;
                                              Message = $msg}
@@ -56,6 +57,7 @@ AddMessage "I" $Scriptmsg
 if ($log) {
     $thisdate = Get-Date
     AddMessage "I" "==> START $thisdate"
+    AddMessage "I" "Host = $inputIP, Logging = $LOGGING" 
 }
 
 # END OF COMMON CODING
@@ -176,18 +178,23 @@ if ($log) {
 }
 
 $Global:ResultObject.Status = "InActive"
+$Global:ResultObject.StatusCode = 0
 If ($scripterror) {
     $Global:ResultObject.Status = "Error"
+    $Global:ResultObject.StatusCode = 12
 }
 else {
     if ($Global:ResultObject.IPcached) {
         $Global:ResultObject.Status = "Cached"
+        $Global:ResultObject.StatusCode = 3
     }  
     if ($Global:ResultObject.IPpingable) {
         $Global:ResultObject.Status = "Pingable"
+        $Global:ResultObject.StatusCode = 6
     }
     if (($Global:ResultObject.IPpingable) -and ($Global:ResultObject.IPcached)) {
         $Global:ResultObject.Status = "Cached, Pingable"
+        $Global:ResultObject.StatusCode = 9
     }
 }      
 
