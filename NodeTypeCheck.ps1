@@ -1,12 +1,13 @@
 ﻿param (
     [string]$LOGGING = "NO", 
-    [string]$Ctype = "Iets"
+    [string]$Ctype = "Iets",
+    [int]$sensorid = 77
 )
-#$LOGGING = 'YES'
-#$Ctype = "CORE"
+$LOGGING = 'YES'
+$Ctype = "CORE"
 $Ctype = $Ctype.ToUpper()
 
-$ScriptVersion = " -- Version: 1.2"
+$ScriptVersion = " -- Version: 2.0.1"
 
 # COMMON coding
 CLS
@@ -44,7 +45,11 @@ if ($log) {
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         # write-Host "Not"
     }
-    $logfile = $dir + $process + ".log" 
+    if (!($sensorid -match "\d+")) {
+        $sensorid = 99999
+    }
+    $uniqueid = $sensorid.ToString("00000")
+    $logfile = $dir + $process + $uniqueid + ".log" 
 
     $Scriptmsg = "Directory " + $mypath + " -- PowerShell script " + $MyName + $ScriptVersion + $Datum + $Tijd +$Node
     Set-Content $logfile $Scriptmsg 
@@ -80,6 +85,7 @@ try {
     if (!$ctypelist) {
         if ($log) {
             Add-Content $logfile "==> No Node found with type $ctype"
+            $scripterrormsg = "No Node found with type $ctype"
             $scripterror = $true
         }
     }         
@@ -125,6 +131,14 @@ if (!$scripterror) {
                                             IPstatusCode = $nstat.StatusCode}
             $ResultList += $ipobj
             $nroftotal += 1
+            if ($log) {
+                foreach ($m in $nstat.MessageList) {
+                    $lvl = $m.Level
+                    $msg = $m.Message
+                    Add-COntent $logfile "($lvl) - $msg"
+
+                }
+            }
             switch ($nstat.StatusCode) {
                 0 { $nrofinactive += 1 } 
                 3 { $nrofcached +=1 }
@@ -156,14 +170,7 @@ if (!$scripterror) {
         }
     }
     finally {
-        if ($log) {
-            foreach ($m in $nstat.MessageList) {
-                $lvl = $m.Level
-                $msg = $m.Message
-                Add-COntent $logfile "($lvl) - $msg"
-
-            }
-        }
+       
     }
 }
 
