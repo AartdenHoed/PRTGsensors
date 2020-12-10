@@ -1,9 +1,10 @@
 ﻿param (
-    [string]$LOGGING = "NO"    
+    [string]$LOGGING = "NO", 
+    [int]$sensorid = 77   
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.4"
+$ScriptVersion = " -- Version: 2.0"
 
 # COMMON coding
 CLS
@@ -39,7 +40,11 @@ if ($log) {
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         # write-Host "Not"
     }
-    $logfile = $dir + $process + ".log" 
+    if (!($sensorid -match "\d+")) {
+        $sensorid = 99999
+    }
+    $uniqueid = $sensorid.ToString("00000")
+    $logfile = $dir + $process + $uniqueid + ".log" 
 
     $Scriptmsg = "Directory " + $mypath + " -- PowerShell script " + $MyName + $ScriptVersion + $Datum + $Tijd +$Node
     Set-Content $logfile $Scriptmsg 
