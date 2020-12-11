@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.0"
+$ScriptVersion = " -- Version: 3.0.1"
 
 # COMMON coding
 CLS
@@ -110,7 +110,7 @@ if (!$scripterror) {
         }
         $scripterror = $true
         $errortext = $error[0]
-        $scripterrormsg = "Reading directoy $dir failed - $errortext"
+        $scripterrormsg = "Getting NODE status failed for $myhost - $errortext"
 
     }
     finally {
