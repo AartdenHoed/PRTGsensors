@@ -3,12 +3,12 @@
     [string]$myHost  = "????" ,
     [int]$sensorid = 77 
 )
-# $LOGGING = 'YES'
-# $myHost = "holiday"
+#$LOGGING = 'YES'
+#$myHost = "holiday"
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 2.0"
+$ScriptVersion = " -- Version: 3.0"
 
 # COMMON coding
 CLS
@@ -73,6 +73,38 @@ function WriteXmlToScreen ([xml]$xml)
 }
 
 # END OF COMMON CODING
+# Get Node status
+
+if (!$scripterror) {
+    try {
+        if ($log) {
+            Add-Content $logfile "==> Get NODE status for $myhost"
+        }
+        $nstat = & $ADHC_NodeInfoScript "$myHost"  "$LOGGING" 
+
+    }
+    Catch {
+        if ($log) {
+            Add-Content $logfile "==> Getting NODE status failed for $myhost"
+        }
+        $scripterror = $true
+        $errortext = $error[0]
+        $scripterrormsg = "Getting NODE status failed for $myhost - $errortext"
+
+    }
+    finally {
+        if ($log) {
+            foreach ($m in $nstat.MessageList) {
+                $lvl = $m.Level
+                $msg = $m.Message
+                Add-COntent $logfile "($lvl) - $msg"
+
+            }
+        }
+    }
+
+}
+
 
 if (!$scripterror) {
     try {
@@ -80,7 +112,7 @@ if (!$scripterror) {
         if ($log) {
             Add-Content $logfile "==> Get storage info from machine $myHost"
         }
-        $nodeisup = $true
+        $invokable = $true
         if ($myHost -eq $ADHC_Computer.ToUpper()) {
             $DriveInfo = get-WmiObject win32_logicaldisk | Where-Object {(($_.DriveType -eq "3") -or ($_.DriveType -eq "2")) }
         }
@@ -109,14 +141,14 @@ if (!$scripterror) {
                 }
                 else {
                     #write-host "NO"
-                    $nodeisup = $false
+                    $invokable = $false
                 }
                 
                 $myjob | Stop-Job | Out-Null
                 $myjob | Remove-Job | Out-null
             }
             catch {
-                $nodeisup = $false
+                $invokable = $false
             }
             finally {
                 # Write-Host $nodeisup
@@ -149,8 +181,8 @@ if (!$scripterror) {
             Set-Content $DriveInfoFile "$MyHost|INIT" -force
         }
         $drivelist = @()
-        if (!$nodeisup) {
-            # Node down, get info from file
+        if (!$invokable) {
+            # Node not invokable, get info from file
             if ($log) {
                 Add-Content $logfile "==> Node is down, get info from dataset"
             }
@@ -327,14 +359,23 @@ $Unit.InnerText = "Custom"
 $Mode.Innertext = "Absolute"
 $ValueLookup.Innertext = 'NodeStatus'
 
-if ($nodeisup) {
-    $Value.Innertext = "0"
-    $livestat = "UP"
+if ($invokable) {
+    $Value.Innertext = $nstat.StatusCode + 1
+    $livestat = $nstat.Status + ", Invokable"
 } 
 else { 
-   $Value.Innertext = "1"
-   $livestat = "DOWN"
+   $Value.Innertext = $nstat.StatusCode
+   $livestat = $nstat.Status + ", Not Invokable"
 }
+
+#if ($nodeisup) {
+#    $Value.Innertext = "0"
+#    $livestat = "UP"
+#} 
+#else { 
+#   $Value.Innertext = "1"
+#   $livestat = "DOWN"
+#}
 
 [void]$Result.AppendChild($Channel)
 [void]$Result.AppendChild($Value)
