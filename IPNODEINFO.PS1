@@ -101,12 +101,12 @@ if (!$scripterror) {
             if ($inputip -match "\w+") {
                 $ipx = [System.Net.Dns]::GetHostAddresses($InputIp.Trim())
                 if ($ipx) {
-                    write-host "ipx"
+                    # write-host "ipx"
                     $Ipnum = $ipx.IPAddressToSTring
                     $Global:ResultObject.IPaddress = $ipnum                    
                 }
                 else {
-                    write-host "no ipx"
+                    # write-host "no ipx"
                     $Global:ResultObject.IPaddress = $inputip  
                 }
             }
