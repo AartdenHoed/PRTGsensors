@@ -1,11 +1,9 @@
 ﻿param (
-     [string]$InputIP = "0.0.0.0"  ,
-     [string]$LOGGING = "NO"
+     [string]$InputIP = "holiday"  ,
+     [string]$LOGGING = "YES"
 )
-#$LOGGING = 'YES'
-#$inputIp = "holiday"
 
-$ScriptVersion = " -- Version: 1.2"
+$ScriptVersion = " -- Version: 1.3"
 
 # COMMON coding
 CLS
@@ -202,16 +200,16 @@ If ($scripterror) {
     $Global:ResultObject.StatusCode = 12
 }
 else {
-    if ($Global:ResultObject.IPcached) {
-        $Global:ResultObject.Status = "Cached"
+    if (($Global:ResultObject.IPcached) -and (!$Global:ResultObject.IPpingable)) {
+        $Global:ResultObject.Status = "Cached, not Pingable"
         $Global:ResultObject.StatusCode = 3
     }  
-    if ($Global:ResultObject.IPpingable) {
-        $Global:ResultObject.Status = "Pingable"
+    if (($Global:ResultObject.IPpingable) -and (!$Global:ResultObject.IPcached)) {
+        $Global:ResultObject.Status = "Not Cached, but Pingable"
         $Global:ResultObject.StatusCode = 6
     }
     if (($Global:ResultObject.IPpingable) -and ($Global:ResultObject.IPcached)) {
-        $Global:ResultObject.Status = "Cached, Pingable"
+        $Global:ResultObject.Status = "Cached and Pingable"
         $Global:ResultObject.StatusCode = 9
     }
 }      
