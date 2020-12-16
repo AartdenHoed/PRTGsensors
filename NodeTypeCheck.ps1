@@ -1,13 +1,12 @@
 ﻿param (
-    [string]$LOGGING = "NO", 
-    [string]$Ctype = "Iets",
+    [string]$LOGGING = "YES", 
+    [string]$Ctype = "CORE",
     [int]$sensorid = 77
 )
-$LOGGING = 'YES'
-$Ctype = "CORE"
+
 $Ctype = $Ctype.ToUpper()
 
-$ScriptVersion = " -- Version: 2.0.1"
+$ScriptVersion = " -- Version: 2.0.2"
 
 # COMMON coding
 CLS
@@ -36,7 +35,7 @@ if (!$ADHC_InitSuccessfull) {
     throw $ADHC_InitError
 }
 
-if ($LOGGING -eq "YES") {$log = $true} else {$log = $false}
+if ($LOGGING.ToUpper() -eq "YES") {$log = $true} else {$log = $false}
 
 if ($log) {
     $dir = $ADHC_OutputDirectory + $ADHC_PRTGlogs
@@ -267,7 +266,7 @@ if ($scripterror) {
 else {
     $ErrorValue.InnerText = "0"
    
-    $message = "Nodes in group $ctype *** Total: $nroftotal *** Inactive: $nrofinactive *** Cached: $nrofcached *** Pingable: $nrofping  *** Cached+Pingable: $nrofboth *** In error: $nroferror *** Script $scriptversion"
+    $message = "Nodes in group $ctype *** Total: $nroftotal *** Inactive: $nrofinactive *** Cached, not pingable: $nrofcached *** Not Cached, but Pingable: $nrofping  *** Cached+Pingable: $nrofboth *** In error: $nroferror *** Script $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
