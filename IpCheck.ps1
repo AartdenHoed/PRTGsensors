@@ -1,10 +1,9 @@
 ﻿param (
-    [string]$LOGGING = "NO",
+    [string]$LOGGING = "YES",
     [int]$sensorid = 77   
 )
-# $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 3.0"
+$ScriptVersion = " -- Version: 3.2"
 
 # COMMON coding
 CLS
@@ -104,23 +103,10 @@ if (!$scripterror) {
         invoke-sqlcmd -ServerInstance ".\SQLEXPRESS" -Database "PRTG" `
                         -Query "$query" `
                         -ErrorAction Stop
-        # add this computer to list (will not be in ARP -A output)
-        
-        if ($log) {
-            Add-Content $logfile "==> Insert this computer in ARP table"
-        }
-        $a = Get-NetAdapter | ? {$_.Name -eq "Wi-Fi"}
-        $mymac = $a.MacAddress.Replace("-",":")
-        $query = "INSERT INTO [dbo].[ARP] ([IPaddress],[MACaddress]) VALUES('" + 
-                    $myip + "','"+
-                    $mymac + "')"
-        invoke-sqlcmd -ServerInstance ".\SQLEXPRESS" -Database "PRTG" `
-                        -Query "$query" `
-                        -ErrorAction Stop
         }
     catch {
         if ($log) {
-            Add-Content $logfile "==> Truncate + initial entry in ARP table failed"
+            Add-Content $logfile "==> Truncate ARP table failed"
         }
         $scripterror = $true
         $errortext = $error[0]
@@ -145,8 +131,8 @@ if (!$scripterror) {
                 if (!(($thisMac -eq "---") -or ($thisMac -eq "Address") -or ($thisMac -eq $null) -or ($thisMac -eq "ff-ff-ff-ff-ff-ff") -or ($thisMac -eq "static"))) {
                     $thisMac = $thisMac.Replace("-",":")
                     $query = "INSERT INTO [dbo].[ARP] ([IPaddress],[MACaddress]) VALUES('" + 
-                                    $thisip + "','"+
-                                    $thismac + "')"
+                                    $thisip + "','" +
+                                    $thisMac + "')"
                     invoke-sqlcmd -ServerInstance ".\SQLEXPRESS" -Database "PRTG" `
                             -Query "$query" `
                             -ErrorAction Stop
@@ -209,23 +195,29 @@ if (!$scripterror) {
             $unknownIP = $false
           
             if  ([string]::IsNullOrEmpty($entry.arpMACaddress)) {
-                $IPstatus = "Inactive"
+                $IPstatus = "Not cached"
                 $wrongMAC = $false
+                $altmac = $false
             }
             else {
-                try {
-                    $ping = Test-Connection -COmputerName $entry.arpIPaddress.Trim() -Count 1
+                $IPstatus = "Cached"
+            }
+            try {
+                $pingable = $true
+                $ping = Test-Connection -COmputerName $entry.dbIPaddress.Trim() -Count 1
+            }
+            catch {
+                $pingable = $false    
+            }
+            finally {
+                if ($pingable) {
+                    $IPstatus = $IPstatus +", Pingable"
                 }
-                catch {
+                else {
+                    $IPstatus = $IPstatus +", Not pingable"
                 }
-                finally {
-                    if ($ping) {
-                        $IPstatus = "Cached, Pingable"
-                    }
-                    else {
-                        $IPstatus = "Cached, Not Pingable"
-                    }
-                }
+            }
+            if ($IPstatus -eq "Cached") {
                 if ($entry.dbMACaddress.ToUpper() -eq $entry.arpMACaddress.ToUpper()) { 
                     $wrongMAC = $false
                     $altMAC = $false
@@ -248,6 +240,7 @@ if (!$scripterror) {
                     }
                 }
             }
+            
         }
    
         $obj = [PSCustomObject] [ordered] @{Naam = $entry.Naam;
@@ -272,9 +265,10 @@ if ($log) {
 }
 
 $total = 0
-$nrofcached = 0
-$nrofpingable = 0
-$nrofinactive = 0
+$cacheping = 0
+$cachenoping = 0
+$nocacheping = 0
+$nocachenoping = 0
 $nrofunknown = 0
 $nrofwrongmac = 0
 $nrofalternates = 0
@@ -357,27 +351,38 @@ foreach ($item in $resultlist) {
     switch ($item.IPstatus) {
         "Cached, Pingable" { 
             $thisval = 0
-            $nrofpingable = $nrofpingable + 1
+            $cacheping +=1
         }
-        "Cached, Not Pingable" {
+        "Not cached, Pingable" {
             $thisval = 1
-            $nrofcached = $nrofcached + 1
+            $nocacheping +=1
         }
-        default {
+        "Cached, Not pingable" { 
             $thisval = 2
-            $nrofinactive = $nrofinactive + 1
+            $cachenoping += 1
+        }
+        "Not cached, Not pingable" {
+            $thisval = 3
+            $nocachenoping += 1
+        }     
+      
+        default {
+            $thisval = 7 
+            if ($log) {
+                Add-Content $logfile "==> IP-status $IPstatus unknown"
+            }  
         }
     }
     if ($item.AltMAC) {
-        $thisval = 3
+        $thisval = 4
         $nrofalternates = $nrofalternates + 1
     }
     if ($item.unknownIP) {
-        $thisval = 4
+        $thisval = 5
         $nrofunknown = $nrofunknown + 1
     } 
     if ($item.wrongMAC) {
-        $thisval = 5
+        $thisval = 6
         $nrofwrongmac = $nrofwrongmac + 1
     } 
     $Value.Innertext = $thisval
@@ -406,7 +411,7 @@ if ($scripterror) {
 }
 else {
     $ErrorValue.InnerText = "0"
-    $message = "Total IP's: $Total *** Cached, Not Pingable: $nrofcached *** Cached, Pingable: $nrofpingable *** Inactive: $nrofinactive *** Alternate MACs: $nrofalternates *** Unknown IP's: $nrofunknown *** Wrong MAC adresses: $nrofwrongmac *** Script Version: $scriptversion"
+    $message = "Total IP's: $Total *** Cached, Not Pingable: $cachenoping *** Cached, Pingable: $cacheping *** Not Cached, Pingable: $nocacheping *** Inactive: $nocachenoping *** Alternate MACs: $nrofalternates *** Unknown IP's: $nrofunknown *** Wrong MAC adresses: $nrofwrongmac *** Script Version: $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
