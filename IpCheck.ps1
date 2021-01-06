@@ -3,7 +3,7 @@
     [int]$sensorid = 77   
 )
 
-$ScriptVersion = " -- Version: 3.2"
+$ScriptVersion = " -- Version: 3.3.1"
 
 # COMMON coding
 CLS
@@ -164,8 +164,10 @@ if (!$scripterror) {
           ,db.[MACaddress] as dbMACaddress
 	      ,arp.[MACaddress] as arpMACaddress
           ,db.AltMAC as dbAltMAC
-      FROM [PRTG].[dbo].[IPadressen] db
-      full outer join [PRTG].[dbo].[ARP] arp on db.IPaddress = arp.IPaddress order by db.IPaddress"
+      FROM [PRTG].[dbo].[IPadressen] db      
+      full outer join [PRTG].[dbo].[ARP] arp on db.IPaddress = arp.IPaddress 
+      WHERE db.Authorized = 'Y'or db.Pingable = 'Y'
+      order by db.IPaddress"
     $joinresult = invoke-sqlcmd -ServerInstance ".\SQLEXPRESS" -Database "PRTG" `
                     -Query "$query" `
                     -ErrorAction Stop
