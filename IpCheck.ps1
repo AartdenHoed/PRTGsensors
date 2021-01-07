@@ -3,7 +3,7 @@
     [int]$sensorid = 77   
 )
 
-$ScriptVersion = " -- Version: 3.3.1"
+$ScriptVersion = " -- Version: 3.4"
 
 # COMMON coding
 CLS
@@ -344,7 +344,7 @@ foreach ($item in $resultlist) {
 
     $ipsplit = $useIP.Split(" .")
     $ipnr = (“{0:d3}” -f [int]$ipsplit[3].Trim()) 
-    $cname = "IP" + $ipnr
+    $cname = "IP" + $ipnr + " (" + $item.Naam.Trim() + ")"
     $Channel.InnerText = $cname
     $Unit.InnerText = "Custom"
     $Mode.Innertext = "Absolute"
