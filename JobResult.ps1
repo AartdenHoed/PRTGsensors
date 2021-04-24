@@ -1,10 +1,11 @@
 ﻿param (
     [string]$LOGGING = "NO", 
-    [int]$sensorid = 77   
+    [int]$sensorid = 77 ,
+    [string]$Computername = "x" 
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 2.0"
+$ScriptVersion = " -- Version: 2.1"
 
 # COMMON coding
 CLS
@@ -118,22 +119,24 @@ if (!$scripterror) {
             $obj = [PSCustomObject] [ordered] @{Machine = $Machine;
                                             Job = $Job; 
                                             Jobstatus = $Jobstatus}
-            $resultlist += $obj 
-            $Total = $Total + 1;
-            $Maxcode = [math]::Max($Maxcode, $Jobstatus)
-            switch ($jobstatus) {
-                "0" { $Nrofnono = $Nrofnono + 1}
-                "3" { $NrofChangeNoact = $NrofChangeNoact + 1}
-                "6" { $NrofAction = $NrofAction + 1}
-                "7" { $NrofNoLock = $NrofNoLock + 1}
-                "9" { $NrofError = $NrofError + 1}
-                default {
-                    if ($log) {
-                        Add-Content $logfile "==> Invalid jobstatus $jobstatus"
+            if ($obj.Machine -eq $Computername) {
+                $resultlist += $obj 
+                $Total = $Total + 1;
+                $Maxcode = [math]::Max($Maxcode, $Jobstatus)
+                switch ($jobstatus) {
+                    "0" { $Nrofnono = $Nrofnono + 1}
+                    "3" { $NrofChangeNoact = $NrofChangeNoact + 1}
+                    "6" { $NrofAction = $NrofAction + 1}
+                    "7" { $NrofNoLock = $NrofNoLock + 1}
+                    "9" { $NrofError = $NrofError + 1}
+                    default {
+                        if ($log) {
+                            Add-Content $logfile "==> Invalid jobstatus $jobstatus"
+                        }
+                        $scripterror = $true
+                        $errortext = $error[0]
+                        $scripterrormsg = "Invalid jobstatus $jobstatus"
                     }
-                    $scripterror = $true
-                    $errortext = $error[0]
-                    $scripterrormsg = "Invalid jobstatus $jobstatus"
                 }
             }
             
