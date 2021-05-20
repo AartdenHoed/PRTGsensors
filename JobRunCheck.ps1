@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.0.1"
+$ScriptVersion = " -- Version: 3.0.2"
 
 # COMMON coding
 CLS
@@ -214,8 +214,8 @@ if (!$scripterror) {
         }          
         
         $diff = NEW-TIMESPAN –Start $boottime –End $now
-        # Only check job status if computer has been up for >1 hour
-        if ($diff.Hours -ge 1) {
+        # Only check job status if computer has been up for >1,5 hour
+        if ($diff.Miniutes -ge 90) {
             $checkruns = $true
         }
         else {
