@@ -1,11 +1,13 @@
 ﻿param (
     [string]$LOGGING = "NO", 
     [int]$sensorid = 77 ,
-    [string]$Computername = "x" 
+    [string]$myHost = "x" 
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 2.1"
+$myhost = $myhost.ToUpper()
+
+$ScriptVersion = " -- Version: 2.1.1"
 
 # COMMON coding
 CLS
@@ -78,7 +80,8 @@ try {
         Add-Content $logfile "==> Get list of jobstatus files"
     }
     $logdir = $ADHC_OutputDirectory + $ADHC_JobStatus
-    $logList = Get-ChildItem $logdir -File | Select Name,FullName
+    
+    $logList = Get-ChildItem $logdir -File | Select Name,FullName | Where-Object {$_.Name.ToUpper() -match $myHost}
    
 }
 catch {
@@ -119,7 +122,7 @@ if (!$scripterror) {
             $obj = [PSCustomObject] [ordered] @{Machine = $Machine;
                                             Job = $Job; 
                                             Jobstatus = $Jobstatus}
-            if ($obj.Machine -eq $Computername) {
+            if ($obj.Machine -eq $myHost) {
                 $resultlist += $obj 
                 $Total = $Total + 1;
                 $Maxcode = [math]::Max($Maxcode, $Jobstatus)
