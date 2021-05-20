@@ -3,12 +3,12 @@
     [string]$myHost  = "????" ,
     [int]$sensorid = 77 
 )
-#$LOGGING = 'YES'
-#$myHost = "holiday"
+# $LOGGING = 'YES'
+# $myHost = "holiday"
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.0"
+$ScriptVersion = " -- Version: 3.1.1"
 
 # COMMON coding
 CLS
@@ -114,12 +114,12 @@ if (!$scripterror) {
         }
         $invokable = $true
         if ($myHost -eq $ADHC_Computer.ToUpper()) {
-            $DriveInfo = get-WmiObject win32_logicaldisk | Where-Object {(($_.DriveType -eq "3") -or ($_.DriveType -eq "2")) }
+            $DriveInfo = get-WmiObject win32_logicaldisk | Where-Object {($_.DriveType -eq "3") }   # Only fixed disks
         }
         else {
             try {
                 $myjob = Invoke-Command -ComputerName $myhost `
-                    -ScriptBlock { get-WmiObject win32_logicaldisk | Where-Object {(($_.DriveType -eq "3") -or ($_.DriveType -eq "2"))} } -Credential $ADHC_Credentials `
+                    -ScriptBlock { get-WmiObject win32_logicaldisk | Where-Object {($_.DriveType -eq "3")} } -Credential $ADHC_Credentials `
                     -JobName StorageJob  -AsJob
                 
                 $myjob | Wait-Job -Timeout 50 | Out-Null
