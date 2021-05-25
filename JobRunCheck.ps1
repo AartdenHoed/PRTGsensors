@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.0.2"
+$ScriptVersion = " -- Version: 3.0.3"
 
 # COMMON coding
 CLS
@@ -145,7 +145,7 @@ if (!$scripterror) {
                     -ScriptBlock { Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime } -Credential $ADHC_Credentials `
                     -JobName BootJob  -AsJob
                 # $bt = Invoke-Command -ComputerName $myhost -ScriptBlock { Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime } -Credential $ADHC_Credentials
-                $myjob | Wait-Job -Timeout 50 | Out-Null
+                $myjob | Wait-Job -Timeout 150 | Out-Null
                 if ($myjob) { 
                     $mystate = $myjob.state
                 } 

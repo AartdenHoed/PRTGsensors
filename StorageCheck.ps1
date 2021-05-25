@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.1.1"
+$ScriptVersion = " -- Version: 3.1.2"
 
 # COMMON coding
 CLS
@@ -122,7 +122,7 @@ if (!$scripterror) {
                     -ScriptBlock { get-WmiObject win32_logicaldisk | Where-Object {($_.DriveType -eq "3")} } -Credential $ADHC_Credentials `
                     -JobName StorageJob  -AsJob
                 
-                $myjob | Wait-Job -Timeout 50 | Out-Null
+                $myjob | Wait-Job -Timeout 150 | Out-Null
                 if ($myjob) { 
                     $mystate = $myjob.state
                 } 

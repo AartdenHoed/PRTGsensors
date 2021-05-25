@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 1.0"
+$ScriptVersion = " -- Version: 1.0.1"
 
 # COMMON coding
 CLS
@@ -124,7 +124,7 @@ if (!$scripterror) {
                     -FilePath $vpnscript  -Credential $ADHC_Credentials `
                     -JobName VPNJob  -AsJob
                 # write-host "Wait"
-                $myjob | Wait-Job -Timeout 90 | Out-Null
+                $myjob | Wait-Job -Timeout 150 | Out-Null
                 if ($myjob) { 
                     $mystate = $myjob.state
                 } 
