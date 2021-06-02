@@ -4,7 +4,7 @@
     [int]$sensorid = 77 
 )
 # $LOGGING = 'YES'
-# $myHost = "hoesto"
+# $myHost = "adhc"
 
 function Running-Elevated
 {
@@ -25,7 +25,7 @@ function Running-Elevated
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 1.4"
+$ScriptVersion = " -- Version: 1.4.1"
 
 # COMMON coding
 CLS
@@ -44,8 +44,8 @@ $process = $p[0]
 $FullScriptName = $MyInvocation.MyCommand.Definition
 $mypath = $FullScriptName.Replace($MyName, "")
 
-$LocalInitVar = $mypath + "InitVar.PS1"
-& "$LocalInitVar"
+$LocalInitVar = $mypath + "InitVar.PS1" 
+& "$LocalInitVar" "SILENT"
 
 if (!$ADHC_InitSuccessfull) {
     # Write-Warning "YES"
