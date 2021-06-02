@@ -1,20 +1,34 @@
 ﻿function Running-Elevated
 {
-   $id = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-   $p = New-Object System.Security.Principal.WindowsPrincipal($id)
-   if ($p.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator))
-   { Write-Output $true }      
-    else
-   { Write-Output $false }   
-}
+    $id = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $p = New-Object System.Security.Principal.WindowsPrincipal($id)
+
+    if ($p.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)) { 
+        $adm = $true 
+    }      
+    else { 
+        $adm = $false 
+    }
+    $MyAuth = [PSCustomObject] [ordered] @{ID = $id;
+                                           Principal = $p; 
+                                           Administrator = $adm;
+                                           Version="1.0"}
+    return $MyAuth 
+ } 
 $status = "Ok"
 $CpuList = @()
-if (-not(Running-Elevated)) {
-    $msg =  "*** Script NOT running as administrator"
+$el = Running-Elevated
+
+$u = $el.id.Name
+$ia = $el.Principal.Identity.IsAuthenticated
+$v = $el.Version
+
+if (-not($el.Administrator)) {
+    $msg =  "*** Script (version $v) NOT running as administrator (Current user is $u (IsAuthenticated = $ia))"
     $status = "Error"
 }
 else {
-    $msg =  "*** Script running as administrator"
+    $msg =  "*** Script (version $v) running as administrator (Current user is $u (IsAuthenticated = $ia))"
 } 
 
 if ($status -eq "Ok") {
