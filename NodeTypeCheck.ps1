@@ -6,7 +6,7 @@
 
 $Ctype = $Ctype.ToUpper()
 
-$ScriptVersion = " -- Version: 2.0.2"
+$ScriptVersion = " -- Version: 2.0.3"
 
 # COMMON coding
 CLS
@@ -25,8 +25,8 @@ $process = $p[0]
 $FullScriptName = $MyInvocation.MyCommand.Definition
 $mypath = $FullScriptName.Replace($MyName, "")
 
-$LocalInitVar = $mypath + "InitVar.PS1"
-& "$LocalInitVar"
+$LocalInitVar = $mypath + "InitVar.PS1" 
+& "$LocalInitVar" "SILENT"
 
 $scripterror = $false
 

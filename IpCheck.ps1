@@ -3,7 +3,7 @@
     [int]$sensorid = 77   
 )
 
-$ScriptVersion = " -- Version: 3.4"
+$ScriptVersion = " -- Version: 3.4.1"
 
 # COMMON coding
 CLS
@@ -22,8 +22,9 @@ $process = $p[0]
 $FullScriptName = $MyInvocation.MyCommand.Definition
 $mypath = $FullScriptName.Replace($MyName, "")
 
-$LocalInitVar = $mypath + "InitVar.PS1"
-& "$LocalInitVar"
+$LocalInitVar = $mypath + "InitVar.PS1" 
+& "$LocalInitVar" "SILENT"
+
 if (!$ADHC_InitSuccessfull) {
     # Write-Warning "YES"
     throw $ADHC_InitError

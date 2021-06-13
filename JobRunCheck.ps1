@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.0.3"
+$ScriptVersion = " -- Version: 3.0.4"
 
 # COMMON coding
 CLS
@@ -27,8 +27,8 @@ $process = $p[0]
 $FullScriptName = $MyInvocation.MyCommand.Definition
 $mypath = $FullScriptName.Replace($MyName, "")
 
-$LocalInitVar = $mypath + "InitVar.PS1"
-& "$LocalInitVar"
+$LocalInitVar = $mypath + "InitVar.PS1" 
+& "$LocalInitVar" "SILENT"
 
 if (!$ADHC_InitSuccessfull) {
     # Write-Warning "YES"
