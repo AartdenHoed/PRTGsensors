@@ -4,11 +4,11 @@
     [int]$sensorid = 77 
 )
 # $LOGGING = 'YES'
-# $myHost = "holiday"
+# $myHost = "hoesto"
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.1.2"
+$ScriptVersion = " -- Version: 3.3.1"
 
 # COMMON coding
 CLS
@@ -27,8 +27,8 @@ $process = $p[0]
 $FullScriptName = $MyInvocation.MyCommand.Definition
 $mypath = $FullScriptName.Replace($MyName, "")
 
-$LocalInitVar = $mypath + "InitVar.PS1"
-& "$LocalInitVar"
+$LocalInitVar = $mypath + "InitVar.PS1" 
+& "$LocalInitVar" "SILENT"
 
 if (!$ADHC_InitSuccessfull) {
     # Write-Warning "YES"
@@ -105,7 +105,7 @@ if (!$scripterror) {
 
 }
 
-
+$duration = 0
 if (!$scripterror) {
     try {
         # Storage info of machine
@@ -114,7 +114,13 @@ if (!$scripterror) {
         }
         $invokable = $true
         if ($myHost -eq $ADHC_Computer.ToUpper()) {
+            $begin = Get-Date
+                    
             $DriveInfo = get-WmiObject win32_logicaldisk | Where-Object {($_.DriveType -eq "3") }   # Only fixed disks
+
+            $end = Get-Date
+            $duration = ($end - $begin).seconds
+
         }
         else {
             try {
@@ -125,6 +131,9 @@ if (!$scripterror) {
                 $myjob | Wait-Job -Timeout 150 | Out-Null
                 if ($myjob) { 
                     $mystate = $myjob.state
+                    $begin = $myjob.PSBeginTime
+                    $end = $myjob.PSEndTime
+                    $duration = ($end - $begin).seconds
                 } 
                 else {
                     $mystate = "Unknown"
@@ -312,7 +321,7 @@ $decl = $xmldoc.CreateXmlDeclaration('1.0','Windows-1252',$null)
 
 $PRTG = $xmldoc.CreateElement('PRTG')
 
-# Overall storage status
+# Overall storage status (Primary Channel)
 $Result = $xmldoc.CreateElement('Result')
 $Channel = $xmldoc.CreateElement('Channel')
 $Value = $xmldoc.CreateElement('Value')
@@ -362,20 +371,13 @@ $ValueLookup.Innertext = 'NodeStatus'
 if ($invokable) {
     $Value.Innertext = $nstat.StatusCode + 1
     $livestat = $nstat.Status + ", Invokable"
+    $online = "realtime info"
 } 
 else { 
    $Value.Innertext = $nstat.StatusCode
    $livestat = $nstat.Status + ", Not Invokable"
+   $online = "offline info"
 }
-
-#if ($nodeisup) {
-#    $Value.Innertext = "0"
-#    $livestat = "UP"
-#} 
-#else { 
-#   $Value.Innertext = "1"
-#   $livestat = "DOWN"
-#}
 
 [void]$Result.AppendChild($Channel)
 [void]$Result.AppendChild($Value)
@@ -383,6 +385,27 @@ else {
 [void]$Result.AppendChild($CustomUnit)
 [void]$Result.AppendChild($NotifyChanged)
 [void]$Result.AppendChild($ValueLookup)
+[void]$Result.AppendChild($Mode)
+    
+[void]$PRTG.AppendChild($Result)
+
+# Wait time
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')    
+$Unit = $xmldoc.CreateElement('Unit')
+$Mode = $xmldoc.CreateElement('Mode')
+$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+    
+$Channel.InnerText = "Remote wait time (sec)"
+$Unit.InnerText = "TimeSeconds"
+$Mode.Innertext = "Absolute"
+$Value.Innertext = $duration
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($NotifyChanged)
 [void]$Result.AppendChild($Mode)
     
 [void]$PRTG.AppendChild($Result)
@@ -404,6 +427,7 @@ foreach ($item in $Drivelist) {
     $cname = $item.Machine + " " + $item.Letter + " Free (GB)" 
     $Channel.InnerText = $cname
     $Unit.InnerText = "Custom"
+    $CustomUnit.InnerText = "GB"
     $Mode.Innertext = "Absolute"
     $Float.Innertext = "1"
     # $ValueLookup.Innertext = 'xxx'
@@ -424,7 +448,6 @@ foreach ($item in $Drivelist) {
     $Channel = $xmldoc.CreateElement('Channel')
     $Value = $xmldoc.CreateElement('Value')
     $Unit = $xmldoc.CreateElement('Unit')
-    $CustomUnit = $xmldoc.CreateElement('CustomUnit')
     $Mode = $xmldoc.CreateElement('Mode')
     $Float = $xmldoc.CreateElement('Float')
     $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
@@ -432,7 +455,7 @@ foreach ($item in $Drivelist) {
 
     $cname = $item.Machine + " " + $item.Letter + " Free (%)" 
     $Channel.InnerText = $cname
-    $Unit.InnerText = "Custom"
+    $Unit.InnerText = "Percent"
     $Mode.Innertext = "Absolute"
     $Float.Innertext = "1"
     # $ValueLookup.Innertext = 'xxx'
@@ -442,7 +465,7 @@ foreach ($item in $Drivelist) {
     [void]$Result.AppendChild($Channel)
     [void]$Result.AppendChild($Value)
     [void]$Result.AppendChild($Unit)
-    [void]$Result.AppendChild($CustomUnit)
+    
     [void]$Result.AppendChild($NotifyChanged)
     [void]$Result.AppendChild($Float)
     [void]$Result.AppendChild($Mode)
@@ -492,7 +515,7 @@ if ($scripterror) {
 else {
     $ErrorValue.InnerText = "0"
     
-    $message = "Machine $myhost (now $livestat) *** Drives: $nrofdrives *** warning: $nrofwarning *** Critical: $nrofcritical *** Timestamp: $mytime *** Script $scriptversion"
+    $message = "Machine $myhost (now $livestat) *** Drives: $nrofdrives *** warning: $nrofwarning *** Critical: $nrofcritical *** Timestamp: $mytime ($online) *** Script $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)

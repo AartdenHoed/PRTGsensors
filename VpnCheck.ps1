@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 1.0.1"
+$ScriptVersion = " -- Version: 1.1"
 
 # COMMON coding
 CLS
@@ -27,8 +27,8 @@ $process = $p[0]
 $FullScriptName = $MyInvocation.MyCommand.Definition
 $mypath = $FullScriptName.Replace($MyName, "")
 
-$LocalInitVar = $mypath + "InitVar.PS1"
-& "$LocalInitVar"
+$LocalInitVar = $mypath + "InitVar.PS1" 
+& "$LocalInitVar" "SILENT"
 
 if (!$ADHC_InitSuccessfull) {
     # Write-Warning "YES"
@@ -106,6 +106,7 @@ if (!$scripterror) {
 }
 
 $VpnScript = $mypath + "VpnCheck2.PS1"
+$duration = 0
 
 if (!$scripterror) {
     try {
@@ -115,7 +116,13 @@ if (!$scripterror) {
         }
         $invokable = $true
         if ($myHost -eq $ADHC_Computer.ToUpper()) {
+            
+            $begin = Get-Date
+
             $VpnInfo = & $VpnScript 
+            
+            $end = Get-Date
+            $duration = ($end - $begin).seconds
         }
         else {
             try {
@@ -127,6 +134,9 @@ if (!$scripterror) {
                 $myjob | Wait-Job -Timeout 150 | Out-Null
                 if ($myjob) { 
                     $mystate = $myjob.state
+                    $begin = $myjob.PSBeginTime
+                    $end = $myjob.PSEndTime
+                    $duration = ($end - $begin).seconds
                 } 
                 else {
                     $mystate = "Unknown"
@@ -261,7 +271,7 @@ $decl = $xmldoc.CreateXmlDeclaration('1.0','Windows-1252',$null)
 
 $PRTG = $xmldoc.CreateElement('PRTG')
 
-# Overall VPN status
+# Overall VPN status (PRIMARY channel)
 $Result = $xmldoc.CreateElement('Result')
 $Channel = $xmldoc.CreateElement('Channel')
 $Value = $xmldoc.CreateElement('Value')
@@ -311,20 +321,13 @@ $ValueLookup.Innertext = 'NodeStatus'
 if ($invokable) {
     $Value.Innertext = $nstat.StatusCode + 1
     $livestat = $nstat.Status + ", Invokable"
+    $online = "realtime info"
 } 
 else { 
    $Value.Innertext = $nstat.StatusCode
    $livestat = $nstat.Status + ", Not Invokable"
+   $online = "offline info"
 }
-
-#if ($nodeisup) {
-#    $Value.Innertext = "0"
-#    $livestat = "UP"
-#} 
-#else { 
-#   $Value.Innertext = "1"
-#   $livestat = "DOWN"
-#}
 
 [void]$Result.AppendChild($Channel)
 [void]$Result.AppendChild($Value)
@@ -332,6 +335,27 @@ else {
 [void]$Result.AppendChild($CustomUnit)
 [void]$Result.AppendChild($NotifyChanged)
 [void]$Result.AppendChild($ValueLookup)
+[void]$Result.AppendChild($Mode)
+    
+[void]$PRTG.AppendChild($Result)
+
+# Wait time
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')    
+$Unit = $xmldoc.CreateElement('Unit')
+$Mode = $xmldoc.CreateElement('Mode')
+$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+    
+$Channel.InnerText = "Remote wait time (sec)"
+$Unit.InnerText = "TimeSeconds"
+$Mode.Innertext = "Absolute"
+$Value.Innertext = $duration
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($NotifyChanged)
 [void]$Result.AppendChild($Mode)
     
 [void]$PRTG.AppendChild($Result)
@@ -352,7 +376,7 @@ else {
     $m = $obj.VPNinfo
     $t = $obj.Timestamp
     
-    $message = "IP Address =  $i *** Info =  $m *** Timestamp: $t *** Script $scriptversion"
+    $message = "IP Address =  $i *** Info =  $m *** Timestamp: $t ($online) *** Script $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
