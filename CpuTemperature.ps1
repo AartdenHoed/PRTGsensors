@@ -25,7 +25,8 @@ function Running-Elevated
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 1.4.1"
+
+$ScriptVersion = " -- Version: 1.8"
 
 # COMMON coding
 CLS
@@ -140,6 +141,7 @@ if (!$scripterror) {
 }
 
 $CpuTempScript = $mypath + "CpuTemperature2.PS1"
+$duration = 0
 
 if (!$scripterror) {
     try {
@@ -148,33 +150,49 @@ if (!$scripterror) {
             Add-Content $logfile "==> Get CPU temperature info from machine $myHost"
         }
         $invokable = $true
-        if ($myHost -eq $ADHC_Computer.ToUpper()) {
-            $cmd = "& '" + "$CpuTempScript" + "'"
-            if ($log) {
-                Add-Content $logfile "==> Local script $cmd"
-            }
-            $CpuObject = invoke-expression -Command "$cmd" 
-            if ($CpuObject.MyStatus -ne "Ok") {
-                Throw $CpuObject.Message
-            }
-            $CpuTempInfo = $CpuObject.CPUlist
-        }
-        else {
+        # if ($myHost -eq $ADHC_Computer.ToUpper()) {
+        #if ($myHost -eq "plopper") {
+        #    write-warning "LOCAL"
+        #    $cmd = "& '" + "$CpuTempScript" + "'"
+        #    if ($log) {
+        #        Add-Content $logfile "==> Local script $cmd"
+        #    }
+        #      
+        #    $CpuObject = invoke-expression -Command "$cmd" 
+        #    if ($CpuObject.MyStatus -ne "Ok") {
+        #        Throw $CpuObject.Message
+        #    }
+        #    else {                
+        #        if ($log) {
+        #            $m = "==> Called script ended with status " + $CpuObject.MyStatus + " --- Message: " + $CpuObject.Message
+        #            Add-Content $logfile $m
+        #  
+        #        } 
+        #    }
+        # 
+        #    $CpuTempInfo = $CpuObject.CPUlist
+        #}
+        #else {
             try {
+                # write-warning "Remote"
+               
                 if ($log) {
                     Add-Content $logfile "==> Remote script $CpuTempScript"
                 }
                 
-                $myjob = Invoke-Command -ComputerName $myhost `
-                    -FilePath $CpuTempscript  -Credential $ADHC_Credentials `
-                    -JobName CpuTempJob  -AsJob 
+                $myjob = Invoke-Command -ComputerName $myhost -FilePath $CpuTempscript  -Credential $ADHC_Credentials -JobName CpuTempJob  -AsJob 
+                   
+
                 # write-host "Wait"
                 $myjob | Wait-Job -Timeout 150 | Out-Null
                 if ($myjob) { 
                     $mystate = $myjob.state
+                    $begin = $myjob.PSBeginTime
+                    $end = $myjob.PSEndTime
+                    $duration = ($end - $begin).seconds
                 } 
                 else {
-                    $mystate = "Unknown"
+                    $mystate = "Unknown" 
                 }
                 if ($log) {
                     $mj = $myjob.Name
@@ -194,7 +212,7 @@ if (!$scripterror) {
                     if ($CpuObject.MyStatus -ne "Ok") {
                         Throw $CpuObject.Message
                     }
-                    
+                   
                 }
                 else {
                     #write-host "NO"
@@ -213,7 +231,7 @@ if (!$scripterror) {
                 
                 # Write-Host $nodeisup
             }
-        }      
+        #}      
         
 
     }
@@ -248,8 +266,8 @@ if (!$scripterror) {
         $cpulist = @()
         if (!$invokable) {
             # Node not invokable, get info from file
-
-
+            
+            
             if ($log) {
                 Add-Content $logfile "==> Node is down, get info from dataset"
             }
@@ -292,6 +310,7 @@ if (!$scripterror) {
 
         else {
             # Node is UP, take real time info and write it tot dataset
+               
             if ($log) {
                 Add-Content $logfile "==> Node is up, get realtime info and write it to dataset"
             }         
@@ -365,10 +384,12 @@ $ValueLookup.Innertext = 'NodeStatus'
 if ($invokable) {
     $Value.Innertext = $nstat.StatusCode + 1
     $livestat = $nstat.Status + ", Invokable"
+    $online = "realtime info"
 } 
 else { 
    $Value.Innertext = $nstat.StatusCode
    $livestat = $nstat.Status + ", Not Invokable"
+    $online = "offline info"
 }
 
 
@@ -378,6 +399,27 @@ else {
 [void]$Result.AppendChild($CustomUnit)
 [void]$Result.AppendChild($NotifyChanged)
 [void]$Result.AppendChild($ValueLookup)
+[void]$Result.AppendChild($Mode)
+    
+[void]$PRTG.AppendChild($Result)
+
+# Wait time
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')    
+$Unit = $xmldoc.CreateElement('Unit')
+$Mode = $xmldoc.CreateElement('Mode')
+$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+    
+$Channel.InnerText = "Remote wait time (sec)"
+$Unit.InnerText = "TimeSeconds"
+$Mode.Innertext = "Absolute"
+$Value.Innertext = $duration
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($NotifyChanged)
 [void]$Result.AppendChild($Mode)
     
 [void]$PRTG.AppendChild($Result)
@@ -478,7 +520,7 @@ if ($scripterror) {
 else {
     $ErrorValue.InnerText = "0"
     
-    $message = "Machine $myhost (now $livestat) *** CPU type: $cputype *** Timestamp: $timestamp *** Script $scriptversion"
+    $message = "Machine $myhost (now $livestat) *** CPU type: $cputype *** Timestamp: $timestamp ($online) *** Script $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
