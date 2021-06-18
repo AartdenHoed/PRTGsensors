@@ -4,11 +4,11 @@
     [int] $sensorid = 77 
 )
 #$LOGGING = 'YES'
-#$myHost = "hoesto"
+#$myHost = "adhc"
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.0.4"
+$ScriptVersion = " -- Version: 3.1.1"
 
 # COMMON coding
 CLS
@@ -126,6 +126,7 @@ if (!$scripterror) {
 
 }
 
+$duration = 0
 
 if (!$scripterror) {
     try {
@@ -136,21 +137,35 @@ if (!$scripterror) {
         # $boot = Invoke-Expression('systeminfo | find /i "Boot Time"')
         $invokable = $true
         if ($myHost -eq $ADHC_Computer.ToUpper()) {
+            $begin = Get-Date
+                      
             $bt = Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime
             $boottime = $bt.LastBootUpTime
+
+            $end = Get-Date
+            $duration = ($end - $begin).seconds
         }
         else {
             try {
+                $b = Get-Date
                 $myjob = Invoke-Command -ComputerName $myhost `
                     -ScriptBlock { Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime } -Credential $ADHC_Credentials `
                     -JobName BootJob  -AsJob
                 # $bt = Invoke-Command -ComputerName $myhost -ScriptBlock { Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime } -Credential $ADHC_Credentials
                 $myjob | Wait-Job -Timeout 150 | Out-Null
+                $e = Get-Date
                 if ($myjob) { 
                     $mystate = $myjob.state
+                    $begin = $myjob.PSBeginTime
+                    $end = $myjob.PSEndTime
+                    $duration = ($end - $begin).seconds
+                    if ($duration -lt 0 ) {
+                        $duration = ($e - $b).seconds
+                    }
                 } 
                 else {
                     $mystate = "Unknown"
+                    $duration = ($e - $b).seconds
                 }
                 if ($log) {
                     $mj = $myjob.Name
@@ -215,7 +230,7 @@ if (!$scripterror) {
         
         $diff = NEW-TIMESPAN –Start $boottime –End $now
         # Only check job status if computer has been up for >1,5 hour
-        if ($diff.Miniutes -ge 90) {
+        if ($diff.TotalMinutes -ge 90) {
             $checkruns = $true
         }
         else {
@@ -309,42 +324,7 @@ $decl = $xmldoc.CreateXmlDeclaration('1.0','Windows-1252',$null)
 
 $PRTG = $xmldoc.CreateElement('PRTG')
 
-# Node status
-$Result = $xmldoc.CreateElement('Result')
-$Channel = $xmldoc.CreateElement('Channel')
-$Value = $xmldoc.CreateElement('Value')
-$Unit = $xmldoc.CreateElement('Unit')
-$CustomUnit = $xmldoc.CreateElement('CustomUnit')
-$Mode = $xmldoc.CreateElement('Mode')
-$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
-$ValueLookup =  $xmldoc.CreateElement('ValueLookup')
-
-$Channel.InnerText = "Node status"
-$Unit.InnerText = "Custom"
-$Mode.Innertext = "Absolute"
-$ValueLookup.Innertext = 'NodeStatus'
-
-if ($invokable) {
-    $Value.Innertext = $nstat.StatusCode + 1
-    $livestat = $nstat.Status + ", Invokable"
-} 
-else { 
-   $Value.Innertext = $nstat.StatusCode
-   $livestat = $nstat.Status + ", Not Invokable"
-}
-
-[void]$Result.AppendChild($Channel)
-[void]$Result.AppendChild($Value)
-[void]$Result.AppendChild($Unit)
-[void]$Result.AppendChild($CustomUnit)
-[void]$Result.AppendChild($NotifyChanged)
-[void]$Result.AppendChild($ValueLookup)
-[void]$Result.AppendChild($Mode)
-    
-[void]$PRTG.AppendChild($Result)
-
-
-# Overall status
+# Overall status (PRIMARY CHANNEL)
 
 $Result = $xmldoc.CreateElement('Result')
 $Channel = $xmldoc.CreateElement('Channel')
@@ -410,6 +390,63 @@ foreach ($item in $resultlist) {
 
 }
 
+# Node status
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')
+$Unit = $xmldoc.CreateElement('Unit')
+$CustomUnit = $xmldoc.CreateElement('CustomUnit')
+$Mode = $xmldoc.CreateElement('Mode')
+$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+$ValueLookup =  $xmldoc.CreateElement('ValueLookup')
+
+$Channel.InnerText = "Node status"
+$Unit.InnerText = "Custom"
+$Mode.Innertext = "Absolute"
+$ValueLookup.Innertext = 'NodeStatus'
+
+if ($invokable) {
+    $Value.Innertext = $nstat.StatusCode + 1
+    $livestat = $nstat.Status + ", Invokable"
+    $online = "realtime info"
+} 
+else { 
+   $Value.Innertext = $nstat.StatusCode
+   $livestat = $nstat.Status + ", Not Invokable"
+   $online = "offline info"
+}
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($CustomUnit)
+[void]$Result.AppendChild($NotifyChanged)
+[void]$Result.AppendChild($ValueLookup)
+[void]$Result.AppendChild($Mode)
+    
+[void]$PRTG.AppendChild($Result)
+
+# Wait time
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')    
+$Unit = $xmldoc.CreateElement('Unit')
+$Mode = $xmldoc.CreateElement('Mode')
+$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+    
+$Channel.InnerText = "Remote wait time (sec)"
+$Unit.InnerText = "TimeSeconds"
+$Mode.Innertext = "Absolute"
+$Value.Innertext = $duration
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($NotifyChanged)
+[void]$Result.AppendChild($Mode)
+    
+[void]$PRTG.AppendChild($Result)
+
 # Add error block
 
 $ErrorValue = $xmldoc.CreateElement('Error')
@@ -422,7 +459,7 @@ if ($scripterror) {
 else {
     $ErrorValue.InnerText = "0"
     $bt = $boottime.ToString()
-    $message = "Machine $myhost (now $livestat) last booted $bt *** Total jobs: $Total *** Jobs Executed: $stat0 *** Jobs waiting to run: $Stat2 *** Jobs NOT run (error): $stat6 *** Script $scriptversion"
+    $message = "Machine $myhost (now $livestat) last booted $bt ($online) *** Total jobs: $Total *** Jobs Executed: $stat0 *** Jobs waiting to run: $Stat2 *** Jobs NOT run (error): $stat6 *** Script $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)

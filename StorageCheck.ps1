@@ -4,11 +4,11 @@
     [int]$sensorid = 77 
 )
 # $LOGGING = 'YES'
-# $myHost = "hoesto"
+# $myHost = "holiday"
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.3.1"
+$ScriptVersion = " -- Version: 3.3.2"
 
 # COMMON coding
 CLS
@@ -124,19 +124,25 @@ if (!$scripterror) {
         }
         else {
             try {
+                $b = Get-Date
                 $myjob = Invoke-Command -ComputerName $myhost `
                     -ScriptBlock { get-WmiObject win32_logicaldisk | Where-Object {($_.DriveType -eq "3")} } -Credential $ADHC_Credentials `
                     -JobName StorageJob  -AsJob
                 
                 $myjob | Wait-Job -Timeout 150 | Out-Null
+                $e = Get-Date
                 if ($myjob) { 
                     $mystate = $myjob.state
                     $begin = $myjob.PSBeginTime
                     $end = $myjob.PSEndTime
                     $duration = ($end - $begin).seconds
+                    if ($duration -lt 0 ) {
+                        $duration = ($e - $b).seconds
+                    }
                 } 
                 else {
                     $mystate = "Unknown"
+                    $duration = ($e - $b).seconds
                 }
                 if ($log) {
                     $mj = $myjob.Name
