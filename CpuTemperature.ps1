@@ -26,7 +26,7 @@ function Running-Elevated
 $myhost = $myhost.ToUpper()
 
 
-$ScriptVersion = " -- Version: 1.8"
+$ScriptVersion = " -- Version: 1.8.1"
 
 # COMMON coding
 CLS
@@ -179,20 +179,26 @@ if (!$scripterror) {
                 if ($log) {
                     Add-Content $logfile "==> Remote script $CpuTempScript"
                 }
+                $b = Get-Date
                 
                 $myjob = Invoke-Command -ComputerName $myhost -FilePath $CpuTempscript  -Credential $ADHC_Credentials -JobName CpuTempJob  -AsJob 
-                   
-
+                
                 # write-host "Wait"
                 $myjob | Wait-Job -Timeout 150 | Out-Null
+                $e = Get-Date  
+
                 if ($myjob) { 
                     $mystate = $myjob.state
                     $begin = $myjob.PSBeginTime
                     $end = $myjob.PSEndTime
                     $duration = ($end - $begin).seconds
+                    if ($duration -lt 0 ) {
+                        $duration = ($e - $b).seconds
+                    }
                 } 
                 else {
-                    $mystate = "Unknown" 
+                    $mystate = "Unknown"
+                    $duration = ($e - $b).seconds 
                 }
                 if ($log) {
                     $mj = $myjob.Name
