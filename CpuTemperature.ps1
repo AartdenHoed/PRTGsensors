@@ -26,7 +26,7 @@ function Running-Elevated
 $myhost = $myhost.ToUpper()
 
 
-$ScriptVersion = " -- Version: 1.8.1"
+$ScriptVersion = " -- Version: 1.9"
 
 # COMMON coding
 CLS
@@ -150,95 +150,70 @@ if (!$scripterror) {
             Add-Content $logfile "==> Get CPU temperature info from machine $myHost"
         }
         $invokable = $true
-        # if ($myHost -eq $ADHC_Computer.ToUpper()) {
-        #if ($myHost -eq "plopper") {
-        #    write-warning "LOCAL"
-        #    $cmd = "& '" + "$CpuTempScript" + "'"
-        #    if ($log) {
-        #        Add-Content $logfile "==> Local script $cmd"
-        #    }
-        #      
-        #    $CpuObject = invoke-expression -Command "$cmd" 
-        #    if ($CpuObject.MyStatus -ne "Ok") {
-        #        Throw $CpuObject.Message
-        #    }
-        #    else {                
-        #        if ($log) {
-        #            $m = "==> Called script ended with status " + $CpuObject.MyStatus + " --- Message: " + $CpuObject.Message
-        #            Add-Content $logfile $m
-        #  
-        #        } 
-        #    }
-        # 
-        #    $CpuTempInfo = $CpuObject.CPUlist
-        #}
-        #else {
-            try {
-                # write-warning "Remote"
-               
-                if ($log) {
-                    Add-Content $logfile "==> Remote script $CpuTempScript"
-                }
-                $b = Get-Date
-                
-                $myjob = Invoke-Command -ComputerName $myhost -FilePath $CpuTempscript  -Credential $ADHC_Credentials -JobName CpuTempJob  -AsJob 
-                
-                # write-host "Wait"
-                $myjob | Wait-Job -Timeout 150 | Out-Null
-                $e = Get-Date  
-
-                if ($myjob) { 
-                    $mystate = $myjob.state
-                    $begin = $myjob.PSBeginTime
-                    $end = $myjob.PSEndTime
-                    $duration = ($end - $begin).seconds
-                    if ($duration -lt 0 ) {
-                        $duration = ($e - $b).seconds
-                    }
-                } 
-                else {
-                    $mystate = "Unknown"
-                    $duration = ($e - $b).seconds 
-                }
-                if ($log) {
-                    $mj = $myjob.Name
-                    Add-Content $logfile "==> Remote job $mj ended with status $mystate"
-                }
-                                
-                # Write-host $mystate
-                if ($mystate -eq "Completed") {
-                    # write-host "YES"
-                    $CpuObject = (Receive-Job -Name CpuTempJob)
-                    $CpuTempInfo = $CpuObject.CPUlist
-                    if ($log) {
-                        $m = "==> Called script ended with status " + $CpuObject.MyStatus + " --- Message: " + $CpuObject.Message
-                        Add-Content $logfile $m
-          
-                    } 
-                    if ($CpuObject.MyStatus -ne "Ok") {
-                        Throw $CpuObject.Message
-                    }
-                   
-                }
-                else {
-                    #write-host "NO"
-                    $invokable = $false
-                }
-                # write-host "Stop"
-                $myjob | Stop-Job | Out-Null
-                # write-host "Remove"
-                $myjob | Remove-Job | Out-null
+        
+        try {
+                           
+            if ($log) {
+                Add-Content $logfile "==> Remote script $CpuTempScript"
             }
-            catch {
-                # write-host "Catch"
+            $b = Get-Date
+                
+            $myjob = Invoke-Command -ComputerName $myhost -FilePath $CpuTempscript  -Credential $ADHC_Credentials -JobName CpuTempJob  -AsJob 
+                
+            # write-host "Wait"
+            $myjob | Wait-Job -Timeout 150 | Out-Null
+            $e = Get-Date  
+
+            if ($myjob) { 
+                $mystate = $myjob.state
+                $begin = $myjob.PSBeginTime
+                $end = $myjob.PSEndTime
+                $duration = ($end - $begin).seconds
+                if ($duration -lt 0 ) {
+                    $duration = ($e - $b).seconds
+                }
+            } 
+            else {
+                $mystate = "Unknown"
+                $duration = ($e - $b).seconds 
+            }
+            if ($log) {
+                $mj = $myjob.Name
+                Add-Content $logfile "==> Remote job $mj ended with status $mystate"
+            }
+                                
+            # Write-host $mystate
+            if ($mystate -eq "Completed") {
+                # write-host "YES"
+                $CpuObject = (Receive-Job -Name CpuTempJob)
+                $CpuTempInfo = $CpuObject.CPUlist
+                if ($log) {
+                    $m = "==> Called script ended with status " + $CpuObject.MyStatus + " --- Message: " + $CpuObject.Message
+                    Add-Content $logfile $m
+          
+                } 
+                if ($CpuObject.MyStatus -ne "Ok") {
+                    Throw $CpuObject.Message
+                }
+                   
+            }
+            else {
+                #write-host "NO"
                 $invokable = $false
             }
-            finally {
+            # write-host "Stop"
+            $myjob | Stop-Job | Out-Null
+            # write-host "Remove"
+            $myjob | Remove-Job | Out-null
+        }
+        catch {
+            # write-host "Catch"
+            $invokable = $false
+        }
+        finally {
                 
-                # Write-Host $nodeisup
-            }
-        #}      
-        
+            # Write-Host $nodeisup
+        }
 
     }
     catch {
@@ -311,6 +286,7 @@ if (!$scripterror) {
                                                         Timestamp = $timestamp}
                 }
                 $cpulist += $obj
+                $leeftijd = ($d - $obj.timestamp).TotalMinutes
            }
         }
 
@@ -395,7 +371,12 @@ if ($invokable) {
 else { 
    $Value.Innertext = $nstat.StatusCode
    $livestat = $nstat.Status + ", Not Invokable"
-    $online = "offline info"
+   if (-not($el.Administrator) -and ($myHost -eq $ADHC_Computer.ToUpper()) -and ($leeftijd -le 10)) {
+       $online = "near realtime info"
+   }
+   else {
+       $online = "offline info"
+   }
 }
 
 
