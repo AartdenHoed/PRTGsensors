@@ -1,6 +1,6 @@
 ﻿param (
     [string]$LOGGING = "YES", 
-    [string]$Ctype = "CORE",
+    [string]$Ctype = "NONE",
     [int]$sensorid = 77
 )
 

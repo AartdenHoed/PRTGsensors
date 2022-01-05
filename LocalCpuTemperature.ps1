@@ -1,4 +1,4 @@
-﻿$Version = " -- Version: 1.3"
+﻿$Version = " -- Version: 1.3.1"
 
 # COMMON coding
 CLS
@@ -120,8 +120,8 @@ do {
     Report "I"  "Iteration number $loop"
         
     try {
-
-        & "$Sensorscript" YES ADHC 9000
+        
+        & "$Sensorscript" YES $ADHC_Computer 9000
 
     }
     catch {

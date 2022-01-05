@@ -1,10 +1,10 @@
 ﻿param (
-    [string]$LOGGING = "NO", 
-    [string]$myHost  = "????" ,
+    [string]$LOGGING = "YES", 
+    [string]$myHost  = "NONE" ,
     [int]$sensorid = 77 
 )
 # $LOGGING = 'YES'
-# $myHost = "adhc"
+# $myHost = "adhc-2"
 
 function Running-Elevated
 {

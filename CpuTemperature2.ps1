@@ -12,7 +12,7 @@
     $MyAuth = [PSCustomObject] [ordered] @{ID = $id;
                                            Principal = $p; 
                                            Administrator = $adm;
-                                           Version="1.0"}
+                                           Version="1.0.1"}
     return $MyAuth 
  } 
 $status = "Ok"
@@ -33,7 +33,7 @@ else {
 
 if ($status -eq "Ok") {
  
-    Add-Type -Path "D:\Software\OpenHardwareMonitor\OpenHardwareMonitorLib.dll"
+    Add-Type -Path "C:\Program Files\OpenHardwareMonitor\OpenHardwareMonitorLib.dll"
  
     $Comp = New-Object -TypeName OpenHardwareMonitor.Hardware.Computer
  

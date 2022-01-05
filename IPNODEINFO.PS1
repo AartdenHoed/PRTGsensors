@@ -1,12 +1,12 @@
 ﻿param (
-     [string]$InputIP = "holiday"  ,
+     [string]$InputIP = "iets"  ,
      [string]$LOGGING = "YES"
 )
 
-$ScriptVersion = " -- Version: 1.3"
+$ScriptVersion = " -- Version: 1.3.1"
 
 # COMMON coding
-CLS
+
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
 $ErrorActionPreference = "Stop"
@@ -71,10 +71,10 @@ try {
         AddMessage "I" "Get IP/Mac address from myself"
     }
     $ComputerName = $env:computername
-    $OrgSettings = Get-WmiObject Win32_NetworkAdapterConfiguration -ComputerName $ComputerName -EA Stop | ? { $_.DNSDomain -eq "fritz.box" }
+    $OrgSettings = Get-WmiObject Win32_NetworkAdapterConfiguration -ComputerName $ComputerName -EA Stop |  ? { $_.DNSDomain -eq "fritz.box" }
     $myip = $OrgSettings.IPAddress[0]
 
-    $a = Get-NetAdapter | ? {$_.Name -eq "Wi-Fi"}
+    $a = Get-NetAdapter | ? {$_.Name -like "Wi-Fi*"}
     $mymac = $a.MacAddress.Replace("-",":")
 }
 catch {    
@@ -100,7 +100,7 @@ if (!$scripterror) {
                 $ipx = [System.Net.Dns]::GetHostAddresses($InputIp.Trim())
                 if ($ipx) {
                     # write-host "ipx"
-                    $Ipnum = $ipx.IPAddressToSTring
+                    $Ipnum = $ipx.IPAddressToSTring[0]
                     $Global:ResultObject.IPaddress = $ipnum                    
                 }
                 else {
