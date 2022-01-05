@@ -4,11 +4,11 @@
     [int] $sensorid = 77 
 )
 #$LOGGING = 'YES'
-#$myHost = "adhc"
+#$myHost = "hoesto"
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.1.1"
+$ScriptVersion = " -- Version: 3.1.2"
 
 # COMMON coding
 CLS
@@ -212,20 +212,15 @@ if (!$scripterror) {
         # and Update stoptime if not already done so
         if (!$invokable) {           
             $boottime = $starttime            
-            if ($stoptime -lt $starttime) { # update only first time after computer down
-                $stoptime = Get-Date
-                $bootrec = "$MyHost" + "|" + $boottime.ToString("dd-MM-yyyy HH:mm:ss") + "|" + $stoptime.ToString("dd-MM-yyyy HH:mm:ss")
-                Set-Content $bootfile "$bootrec" 
-            }
             $now = $stoptime
         }
-        # if node is UP, update the bootfile with boottime
-        else { # update file only first time after boot
-            if ($boottime -gt $startime) {
-                $bootrec = "$MyHost" + "|" + $boottime.ToString("dd-MM-yyyy HH:mm:ss") + "|" + $stoptime.ToString("dd-MM-yyyy HH:mm:ss")
-                Set-Content $bootfile "$bootrec"
-            }
-            $now = Get-Date
+        # if node is UP, update the bootfile with boottime, plus preliminary stoptime
+        else { 
+            $stoptime = Get-Date                # it's a minimal guess 
+            $bootrec = "$MyHost" + "|" + $boottime.ToString("dd-MM-yyyy HH:mm:ss") + "|" + $stoptime.ToString("dd-MM-yyyy HH:mm:ss")
+            Set-Content $bootfile "$bootrec"
+            
+            $now = $stoptime
         }          
         
         $diff = NEW-TIMESPAN –Start $boottime –End $now
