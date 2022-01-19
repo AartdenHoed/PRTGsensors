@@ -3,7 +3,8 @@
     [int]$sensorid = 77 ,
     [string]$myHost = "x" 
 )
-# $LOGGING = 'YES'
+$LOGGING = 'YES'
+$myhost = "ADHC-2"
 
 $myhost = $myhost.ToUpper()
 
