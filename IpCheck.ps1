@@ -3,7 +3,7 @@
     [int]$sensorid = 77   
 )
 
-$ScriptVersion = " -- Version: 3.4.1"
+$ScriptVersion = " -- Version: 3.5"
 
 # COMMON coding
 CLS
@@ -165,9 +165,10 @@ if (!$scripterror) {
           ,db.[MACaddress] as dbMACaddress
 	      ,arp.[MACaddress] as arpMACaddress
           ,db.AltMAC as dbAltMAC
+          ,db.Authorized as Authorized
       FROM [PRTG].[dbo].[IPadressen] db      
       full outer join [PRTG].[dbo].[ARP] arp on db.IPaddress = arp.IPaddress 
-      WHERE db.Authorized = 'Y'or db.Pingable = 'Y'
+      WHERE db.Authorized = 'Y'or db.Pingable = 'Y'or arp.IPaddress <> ''
       order by db.IPaddress"
     $joinresult = invoke-sqlcmd -ServerInstance ".\SQLEXPRESS" -Database "PRTG" `
                     -Query "$query" `
@@ -177,6 +178,7 @@ if (!$scripterror) {
 $resultlist = @()
 $somethingrotten = $false
 $warning = $false
+
 
 if (!$scripterror) {
     if ($log) {
@@ -196,14 +198,24 @@ if (!$scripterror) {
                 continue
             }
             $unknownIP = $false
+
+            if ($entry.Authorized -ne "Y") {
+                $IPstatus = "** Illegal **, "
+                $somethingrotten = $true
+                $illegal = $true
+            }
+            else {
+                $IPstatus = ""
+                $illegal = $false
+            }
           
             if  ([string]::IsNullOrEmpty($entry.arpMACaddress)) {
-                $IPstatus = "Not cached"
+                $IPstatus = $IPstatus + "Not cached"
                 $wrongMAC = $false
                 $altmac = $false
             }
             else {
-                $IPstatus = "Cached"
+                $IPstatus = $IPstatus + "Cached"
             }
             try {
                 $pingable = $true
@@ -220,6 +232,7 @@ if (!$scripterror) {
                     $IPstatus = $IPstatus +", Not pingable"
                 }
             }
+
             if ($IPstatus -eq "Cached") {
                 if ($entry.dbMACaddress.ToUpper() -eq $entry.arpMACaddress.ToUpper()) { 
                     $wrongMAC = $false
@@ -254,7 +267,8 @@ if (!$scripterror) {
                                             unknownIP = $unknownIP; 
                                             wrongMAC = $wrongMAC; 
                                             altMAC = $altMAC;
-                                            IPstatus = $IPstatus}
+                                            IPstatus = $IPstatus;
+                                            Illegal = $Illegal}
         $resultlist += $obj
     
     } 
@@ -275,6 +289,7 @@ $nocachenoping = 0
 $nrofunknown = 0
 $nrofwrongmac = 0
 $nrofalternates = 0
+$nrofillegal = 0
 
 
 [xml]$xmldoc = New-Object System.Xml.XmlDocument
@@ -367,10 +382,26 @@ foreach ($item in $resultlist) {
         "Not cached, Not pingable" {
             $thisval = 3
             $nocachenoping += 1
-        }     
+        }  
+        "** Illegal **, Cached, Pingable" { 
+            $thisval = 0
+            $cacheping +=1
+        }
+        "** Illegal **, Not cached, Pingable" {
+            $thisval = 1
+            $nocacheping +=1
+        }
+        "** Illegal **, Cached, Not pingable" { 
+            $thisval = 2
+            $cachenoping += 1
+        }
+        "** Illegal **, Not cached, Not pingable" {
+            $thisval = 3
+            $nocachenoping += 1
+        }        
       
         default {
-            $thisval = 7 
+            $thisval = 8 
             if ($log) {
                 Add-Content $logfile "==> IP-status $IPstatus unknown"
             }  
@@ -387,6 +418,10 @@ foreach ($item in $resultlist) {
     if ($item.wrongMAC) {
         $thisval = 6
         $nrofwrongmac = $nrofwrongmac + 1
+    } 
+    if ($item.Illegal) {
+        $thisval = 7
+        $nrofillegal = $nrofillegal + 1
     } 
     $Value.Innertext = $thisval
 
@@ -414,7 +449,7 @@ if ($scripterror) {
 }
 else {
     $ErrorValue.InnerText = "0"
-    $message = "Total IP's: $Total *** Cached, Not Pingable: $cachenoping *** Cached, Pingable: $cacheping *** Not Cached, Pingable: $nocacheping *** Inactive: $nocachenoping *** Alternate MACs: $nrofalternates *** Unknown IP's: $nrofunknown *** Wrong MAC adresses: $nrofwrongmac *** Script Version: $scriptversion"
+    $message = "Total IP's: $Total *** Illegal: $nrofillegal *** Cached, Not Pingable: $cachenoping *** Cached, Pingable: $cacheping *** Not Cached, Pingable: $nocacheping *** Inactive: $nocachenoping *** Alternate MACs: $nrofalternates *** Unknown IP's: $nrofunknown *** Wrong MAC adresses: $nrofwrongmac *** Script Version: $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
