@@ -3,7 +3,7 @@
      [string]$LOGGING = "YES"
 )
 
-$ScriptVersion = " -- Version: 1.3.1"
+$ScriptVersion = " -- Version: 1.3.2"
 
 # COMMON coding
 
@@ -61,30 +61,39 @@ if ($log) {
 
 # END OF COMMON CODING
 
-$scripterror = $false
+# Determine your own attributes (try max 5 times)
 
-# Determine your own attributes
+for ($i=1; $i -le 5; $i++) {
 
-try {
-    $Global:ResultObject.itsme = $false
-    if ($log) {
-        AddMessage "I" "Get IP/Mac address from myself"
+    try {
+        $scripterror = $false
+        $Global:ResultObject.itsme = $false
+        if ($log) {
+            AddMessage "I" "Get IP/Mac address from myself (attempt nr. $i)"
+        }
+        $ComputerName = $env:computername
+        $OrgSettings = Get-WmiObject Win32_NetworkAdapterConfiguration -ComputerName $ComputerName -EA Stop |  ? { $_.DNSDomain -eq "fritz.box" }
+        $myip = $OrgSettings.IPAddress[0]
+
+        $a = Get-NetAdapter | ? {$_.Name -like "Wi-Fi*"}
+        $mymac = $a.MacAddress.Replace("-",":")
+        
+        # leave loop if succesfull
+        break
+
     }
-    $ComputerName = $env:computername
-    $OrgSettings = Get-WmiObject Win32_NetworkAdapterConfiguration -ComputerName $ComputerName -EA Stop |  ? { $_.DNSDomain -eq "fritz.box" }
-    $myip = $OrgSettings.IPAddress[0]
-
-    $a = Get-NetAdapter | ? {$_.Name -like "Wi-Fi*"}
-    $mymac = $a.MacAddress.Replace("-",":")
-}
-catch {    
-    $scripterror = $true
-    $errortext = $error[0]
-    $scripterrormsg = "Getting IP/MAC address failed - $errortext"
-    if ($log) {
-       AddMessage "E" "$scripterrormsg"
-    }
+    catch {    
+        $scripterror = $true
+        $errortext = $error[0]
+        $scripterrormsg = "Getting IP/MAC address failed - $errortext"
+        if ($log) {
+           AddMessage "E" "$scripterrormsg"
+        }
+        # wait before retry
+        Start-Sleep -s 3
     
+    }
+
 }
 
 # PING first, ARP -A after that
