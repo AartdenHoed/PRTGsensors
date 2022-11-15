@@ -4,7 +4,7 @@
     [int]$sensorid = 77 
 )
 # $LOGGING = 'YES'
-# $myHost = "adhc-2"
+# $myHost = "hoesto"
 
 function Running-Elevated
 {
