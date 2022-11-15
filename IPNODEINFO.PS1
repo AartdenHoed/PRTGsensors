@@ -2,8 +2,9 @@
      [string]$InputIP = "iets"  ,
      [string]$LOGGING = "YES"
 )
+# $inputip = "hoesto"
 
-$ScriptVersion = " -- Version: 1.3.2"
+$ScriptVersion = " -- Version: 1.3.3"
 
 # COMMON coding
 
@@ -109,7 +110,7 @@ if (!$scripterror) {
                 $ipx = [System.Net.Dns]::GetHostAddresses($InputIp.Trim())
                 if ($ipx) {
                     # write-host "ipx"
-                    $Ipnum = $ipx.IPAddressToSTring[0]
+                    $Ipnum = $ipx.IPAddressToSTring
                     $Global:ResultObject.IPaddress = $ipnum                    
                 }
                 else {
