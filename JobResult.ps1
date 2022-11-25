@@ -3,12 +3,12 @@
     [int]$sensorid = 77 ,
     [string]$myHost = "x" 
 )
-$LOGGING = 'YES'
-$myhost = "ADHC-2"
+# $LOGGING = 'YES'
+# $myhost = "ADHC-2"
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 2.1.2"
+$ScriptVersion = " -- Version: 2.2"
 
 # COMMON coding
 CLS
@@ -101,6 +101,8 @@ catch {
 
 if (!$scripterror) {
 
+    $missingfile = $false
+
     try { 
         if ($log) {
             Add-Content $logfile "==> Interprete each jobstatus file"
@@ -115,37 +117,72 @@ if (!$scripterror) {
         $MaxCode = 0
 
         foreach ($logdataset in $loglist) {
-            $a = Get-Content $logdataset.FullName
-            $args = $a.Split("|")
-            $Machine = $args[0]
-            $Job = $args[1]
-            $Jobstatus = $args[2]
-            $obj = [PSCustomObject] [ordered] @{Machine = $Machine;
-                                            Job = $Job; 
-                                            Jobstatus = $Jobstatus}
-            if ($obj.Machine -eq $myHost) {
-                $resultlist += $obj 
-                $Total = $Total + 1;
-                $Maxcode = [math]::Max($Maxcode, $Jobstatus)
-                switch ($jobstatus) {
-                    "0" { $Nrofnono = $Nrofnono + 1}
-                    "3" { $NrofChangeNoact = $NrofChangeNoact + 1}
-                    "6" { $NrofAction = $NrofAction + 1}
-                    "7" { $NrofNoLock = $NrofNoLock + 1}
-                    "9" { $NrofError = $NrofError + 1}
-                    default {
-                        if ($log) {
-                            Add-Content $logfile "==> Invalid jobstatus $jobstatus"
+            $readsuccess = $false
+            $skippit = $false
+            $trycount = 0
+            do {
+                try {
+                    $trycount += 1
+                    $a = Get-Content $logdataset.FullName
+                    $readsuccess = $true
+                }
+                catch {
+                    $f = $logdataset.FullName
+                    $errortext = $error[0]
+                    if ($trycount -le 5) {
+                        if ($log) {                            
+                            Add-Content $logfile "==> Attempt number $trycount - reading $f failed: $errortext"
+                            Add-Content $logfile "==> Wait 5 seconds and retry"
                         }
-                        $scripterror = $true
-                        $errortext = $error[0]
-                        $scripterrormsg = "Invalid jobstatus $jobstatus"
+                        Start-Sleep -Seconds 5
+                    }
+                    else {
+                        if ($log) {                            
+                            Add-Content $logfile "==> File $f failed skipped"
+                        }
+                        $skippit = $true
+                        $readsuccess = $false  
                     }
                 }
+            } until ($readsuccess -or $skippit)
+
+            if ($readsuccess) {
+                $args = $a.Split("|")
+                $Machine = $args[0]
+                $Job = $args[1]
+                $Jobstatus = $args[2]
+                $obj = [PSCustomObject] [ordered] @{Machine = $Machine;
+                                                Job = $Job; 
+                                                Jobstatus = $Jobstatus}
+                if ($obj.Machine -eq $myHost) {
+                    $resultlist += $obj 
+                    $Total = $Total + 1;
+                    $Maxcode = [math]::Max($Maxcode, $Jobstatus)
+                    switch ($jobstatus) {
+                        "0" { $Nrofnono = $Nrofnono + 1}
+                        "3" { $NrofChangeNoact = $NrofChangeNoact + 1}
+                        "6" { $NrofAction = $NrofAction + 1}
+                        "7" { $NrofNoLock = $NrofNoLock + 1}
+                        "9" { $NrofError = $NrofError + 1}
+                        default {
+                            if ($log) {
+                                Add-Content $logfile "==> Invalid jobstatus $jobstatus"
+                            }
+                            $scripterror = $true
+                            $errortext = $error[0]
+                            $scripterrormsg = "Invalid jobstatus $jobstatus"
+                        }
+                    }
+                }
+                
             }
-            
+            else {
+                $missingfile = $true
+            }            
             
         }
+        
+            
         # $resultlist | Out-gridview
 
     }
@@ -190,8 +227,13 @@ $ValueLookup.Innertext = 'OverallJOBStatus'
 if ($scripterror) {
     $Value.Innertext = "12"
 } 
-else { 
-   $Value.Innertext = $Maxcode
+else {
+    if ($missingfile) {
+        $Value.Innertext = "8"
+    }
+    else { 
+        $Value.Innertext = $maxcode
+    }
 }
 
 [void]$Result.AppendChild($Channel)

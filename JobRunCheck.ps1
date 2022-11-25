@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.1.2"
+$ScriptVersion = " -- Version: 3.2.1"
 
 # COMMON coding
 CLS
@@ -250,7 +250,7 @@ if (!$scripterror) {
 # Process all jobstatus files
 
 if (!$scripterror) {
-
+    $missingfile = $false
     try { 
         if ($log) {
             Add-Content $logfile "==> Interprete each jobstatus file"
@@ -264,37 +264,70 @@ if (!$scripterror) {
 
         
         foreach ($logdataset in $loglist) {
-            $a = Get-Content $logdataset.FullName
-            $args = $a.Split("|")
-            $machine = $args[0]
-            $Job = $args[1]
-            $Timestamp = [datetime]::ParseExact($args[4],"dd-MM-yyyy HH:mm:ss",$null)
-            if ($timestamp -gt $boottime) {
-                    $runstatus = 0 #ok
-                    $stat0 +=1
+            $readsuccess = $false
+            $skippit = $false
+            $trycount = 0
+            do {
+                try {
+                    $trycount += 1
+                    $a = Get-Content $logdataset.FullName
+                    $readsuccess = $true
                 }
-            else {
-                if ($checkruns) {                
-                    $runstatus = 6 #late
-                    $stat6 +=1                
+                catch {
+                    $f = $logdataset.FullName
+                    $errortext = $error[0]
+                    if ($trycount -le 5) {
+                        if ($log) {                            
+                            Add-Content $logfile "==> Attempt number $trycount - reading $f failed: $errortext"
+                            Add-Content $logfile "==> Wait 5 seconds and retry"
+                        }
+                        Start-Sleep -Seconds 5
+                    }
+                    else {
+                        if ($log) {                            
+                            Add-Content $logfile "==> File $f failed skipped"
+                        }
+                        $skippit = $true
+                        $readsuccess = $false  
+                    }
                 }
+            } until ($readsuccess -or $skippit)
+
+            if ($readsuccess) {
+                $args = $a.Split("|")
+                $machine = $args[0]
+                $Job = $args[1]
+                $Timestamp = [datetime]::ParseExact($args[4],"dd-MM-yyyy HH:mm:ss",$null)
+                if ($timestamp -gt $boottime) {
+                        $runstatus = 0 #ok
+                        $stat0 +=1
+                    }
                 else {
-                    $runstatus = 2 # boot is too recent
-                    $stat2 +=1
+                    if ($checkruns) {                
+                        $runstatus = 6 #late
+                        $stat6 +=1                
+                    }
+                    else {
+                        $runstatus = 2 # boot is too recent
+                        $stat2 +=1
+                    }
                 }
-            }
-            $Maxcode = [math]::Max($Maxcode, $runstatus)
+                $Maxcode = [math]::Max($Maxcode, $runstatus)
            
-            $obj = [PSCustomObject] [ordered] @{Job = $Job;
-                                            Machine = $machine; 
-                                            Timestamp = $Timestamp;
-                                            RunStatus = $runstatus}
-            $resultlist += $obj 
-            $Total = $Total + 1; 
+                $obj = [PSCustomObject] [ordered] @{Job = $Job;
+                                                Machine = $machine; 
+                                                Timestamp = $Timestamp;
+                                                RunStatus = $runstatus}
+                $resultlist += $obj 
+                $Total = $Total + 1; 
                     
-        }
-        # $resultlist | Out-gridview
+            }
+            else {
+                $missingfile = $true
+            }
+            # $resultlist | Out-gridview
         
+        }
     }
     catch {
         if ($log) {
@@ -338,8 +371,13 @@ $ValueLookup.Innertext = 'OverallRUNStatus'
 if ($scripterror) {
     $Value.Innertext = "12"
 } 
-else { 
-   $Value.Innertext = $maxcode
+else {
+    if ($missingfile) {
+        $Value.Innertext = "5"
+    }
+    else { 
+        $Value.Innertext = $maxcode
+    }
 }
 
 [void]$Result.AppendChild($Channel)
