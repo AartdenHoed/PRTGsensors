@@ -4,7 +4,7 @@
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.1"
+$ScriptVersion = " -- Version: 1.1.1"
 
 # COMMON coding
 CLS
@@ -380,8 +380,13 @@ else {
         $Value.Innertext = "8"
     }
     else {
-        if ($totold -eq 0) {
+        if ($totOld -eq 0) {
+            if ($totNoCheck -eq 0) {
             $Value.Innertext = "0"
+            }
+            else {
+                $Value.Innertext = "1"
+            }     
         }
         else {
             $Value.Innertext = "4"
