@@ -4,7 +4,7 @@
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.1.1"
+$ScriptVersion = " -- Version: 1.1.2"
 
 # COMMON coding
 CLS
@@ -299,7 +299,7 @@ if (!$scripterror) {
                            Add-Content $logfile "==> Wrong dataset status encountered: $dsstate"          
                         }
                         $scripterror = $true
-                        $scripterrormsg = "==> Wrong dataset status encountered: $dsstate"
+                        $scripterrormsg = "==> Wrong dataset status encountered: $dsstate for dataset $fname"
                     }
 
                 }
