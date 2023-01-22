@@ -4,7 +4,7 @@
     [int] $sensorid = 77 
 )
 # $LOGGING = 'YES'
-# $myHost = "hoesto"
+# $myHost = "ADHC-2"
 
 $myhost = $myhost.ToUpper()
 
