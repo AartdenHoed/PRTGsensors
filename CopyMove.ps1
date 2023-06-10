@@ -18,7 +18,7 @@ $Mode = $Mode.ToUpper()
 $Actionlist = @("MOVE","COPY")
 $Modelist = @("REPLACE","APPEND")
 
-$ScriptVersion = " -- Version: 1.2.1"
+$ScriptVersion = " -- Version: 1.3"
 
 function Report ([string]$level, [string]$line) {
     
@@ -107,6 +107,7 @@ Catch {
 
 # Determine input parameters and verify input
 
+
 if (!$global:scripterrorx) {
     try {
         if ($Messages) {
@@ -125,6 +126,7 @@ if (!$global:scripterrorx) {
             $global:writemsg = $false
             $global:JSON = $false
         }
+        
         $Scriptmsg = "*** STARTED *** " + $mypath + " -- PowerShell script " + $MyName + $ScriptVersion + $Datum + $Tijd +$Node
         Report "N" $Scriptmsg
         if (!$global:JSON) { 
@@ -207,20 +209,28 @@ if (!$global:scripterrorx) {
                 copy-item -path "$inputfile" -destination "$outputfile" -force
             }
             else {
-                $o = Get-Content $inputfile                 
+                # MODE = APPEND
+                $tussenfile = "$inputfile" + "T"
+                copy-item -path "$inputfile" -destination "$tussenfile" -force
+                $o = Get-Content $tussenfile                 
                 Add-Content $outputfile $o
+                Remove-Item $tussenfile
             }
 
            
         }
         else {
+            # ACTION = MOVE
             if ($Mode -eq "REPLACE") {
                 move-item -path "$inputfile" -destination "$outputfile" -force
             }
             else {
-                $0 = Get-Content $inputfile                
+                # MODE = APPEND
+                $tussenfile = "$inputfile" + "T"
+                move-item -path "$inputfile" -destination "$tussenfile" -force
+                $o = Get-Content $tussenfile                      
                 Add-Content $outputfile $o
-                Remove-Item $inputfile
+                Remove-Item $tussenfile
             }               
             
         }
