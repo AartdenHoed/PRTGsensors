@@ -1,4 +1,4 @@
-﻿$Version = " -- Version: 1.3.1"
+﻿$Version = " -- Version: 1.3.2"
 
 # COMMON coding
 CLS
@@ -163,7 +163,12 @@ do {
         try { #  copy temp file
         
             $deffile = $ADHC_OutputDirectory + $ADHC_LocalCpuTemperature.Directory + $ADHC_LocalCpuTemperature.Name 
-            & $ADHC_CopyMoveScript $TempFile $deffile "MOVE" "REPLACE" $TempFile  
+            if ($loop -eq 1) {
+                & $ADHC_CopyMoveScript $TempFile $deffile "MOVE" "REPLACE" $TempFile  
+            }
+            else {
+                & $ADHC_CopyMoveScript $TempFile $deffile "MOVE" "APPEND" $TempFile 
+            }
         }
         Catch {
             $ErrorMessage = $_.Exception.Message
