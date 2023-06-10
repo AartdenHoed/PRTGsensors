@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.2.1"
+$ScriptVersion = " -- Version: 4.0.1"
 
 # COMMON coding
 CLS
@@ -130,67 +130,6 @@ $duration = 0
 
 if (!$scripterror) {
     try {
-        # get boottime of machine
-        if ($log) {
-            Add-Content $logfile "==> Get boottime from machine $myHost"
-        }
-        # $boot = Invoke-Expression('systeminfo | find /i "Boot Time"')
-        $invokable = $true
-        if ($myHost -eq $ADHC_Computer.ToUpper()) {
-            $begin = Get-Date
-                      
-            $bt = Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime
-            $boottime = $bt.LastBootUpTime
-
-            $end = Get-Date
-            $duration = ($end - $begin).seconds
-        }
-        else {
-            try {
-                $b = Get-Date
-                $myjob = Invoke-Command -ComputerName $myhost `
-                    -ScriptBlock { Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime } -Credential $ADHC_Credentials `
-                    -JobName BootJob  -AsJob
-                # $bt = Invoke-Command -ComputerName $myhost -ScriptBlock { Get-CimInstance -Class Win32_OperatingSystem | Select-Object LastBootUpTime } -Credential $ADHC_Credentials
-                $myjob | Wait-Job -Timeout 150 | Out-Null
-                $e = Get-Date
-                if ($myjob) { 
-                    $mystate = $myjob.state
-                    $begin = $myjob.PSBeginTime
-                    $end = $myjob.PSEndTime
-                    $duration = ($end - $begin).seconds
-                    if ($duration -lt 0 ) {
-                        $duration = ($e - $b).seconds
-                    }
-                } 
-                else {
-                    $mystate = "Unknown"
-                    $duration = ($e - $b).seconds
-                }
-                if ($log) {
-                    $mj = $myjob.Name
-                    Add-Content $logfile "==> Remote job $mj ended with status $mystate"
-                }
-                                
-                # Write-host $mystate
-                if ($mystate -eq "Completed") {
-                    #write-host "YES"
-                    $boottime = (Receive-Job -Name BootJob).LastBootUpTime
-                }
-                else {
-                    #write-host "NO"
-                    $invokable = $false
-                }
-                $myjob | Stop-Job | Out-Null
-                $myjob | Remove-Job | Out-null
-            }
-            catch {
-                $invokable = $false
-            }
-            finally {
-                # Write-Host $nodeisup
-            }
-        }
         # Init boottime file if not existent
         $str = $ADHC_BootTime.Split("\")
         $dir = $ADHC_OutputDirectory + $str[0]
@@ -200,30 +139,17 @@ if (!$scripterror) {
         if (!$lt) {
             Set-Content $bootfile "$MyHost|01-01-2000 00:00:00|01-01-2000 00:00:00" -force
         }
+        
         # Read bootfile
         $bootrec = Get-Content $bootfile
         if (!$bootrec) {
-            $bootrec =  "$MyHost|01-01-2000 00:00:00|01-01-2000 00:00:00" 
+            $bootrec =  "$MyHost|01-01-2000 00:00:00|01-01-2000 00:00:00|0" 
         }
         $bootsplit = $bootrec.Split("|")
         $starttime = [datetime]::ParseExact($bootsplit[1],"dd-MM-yyyy HH:mm:ss",$null)
         $stoptime = [datetime]::ParseExact($bootsplit[2],"dd-MM-yyyy HH:mm:ss",$null)
-        # If node is NOT up, get last boottime from dataset, else update dataset
-        # and Update stoptime if not already done so
-        if (!$invokable) {           
-            $boottime = $starttime            
-            $now = $stoptime
-        }
-        # if node is UP, update the bootfile with boottime, plus preliminary stoptime
-        else { 
-            $stoptime = Get-Date                # it's a minimal guess 
-            $bootrec = "$MyHost" + "|" + $boottime.ToString("dd-MM-yyyy HH:mm:ss") + "|" + $stoptime.ToString("dd-MM-yyyy HH:mm:ss")
-            Set-Content $bootfile "$bootrec"
-            
-            $now = $stoptime
-        }          
-        
-        $diff = NEW-TIMESPAN –Start $boottime –End $now
+                
+        $diff = NEW-TIMESPAN –Start $starttime –End $stoptime
         # Only check job status if computer has been up for >1,5 hour
         if ($diff.TotalMinutes -ge 90) {
             $checkruns = $true
@@ -232,8 +158,8 @@ if (!$scripterror) {
             $checkruns = $false
         }
         if ($log) {
-            $bt = $boottime.ToString()
-            Add-Content $logfile "==> Boottime = $bt, Node $MyHost INVOKABLE=$invokable"
+            $bt = $starttime.ToString()
+            Add-Content $logfile "==> Last boottime = $bt"
         }
     }
     catch {
@@ -491,7 +417,7 @@ if ($scripterror) {
 }
 else {
     $ErrorValue.InnerText = "0"
-    $bt = $boottime.ToString()
+    $bt = $starttime.ToString()
     $message = "Machine $myhost (now $livestat) last booted $bt ($online) *** Total jobs: $Total *** Jobs Executed: $stat0 *** Jobs waiting to run: $Stat2 *** Jobs NOT run (error): $stat6 *** Script $scriptversion"
     $ErrorText.InnerText = $message
 } 
