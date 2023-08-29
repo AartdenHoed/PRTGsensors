@@ -2,9 +2,13 @@
      [string]$InputIP = "iets"  ,
      [string]$LOGGING = "YES"
 )
-# $inputip = "hoesto"
+#$inputip = "192.168.178.201"
 
-$ScriptVersion = " -- Version: 1.3.3"
+$NumericAddress = $inputip -match "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}"
+
+$MyHost = $inputip.ToUpper()
+
+$ScriptVersion = " -- Version: 1.4"
 
 # COMMON coding
 
@@ -36,6 +40,7 @@ $Global:ResultObject = [PSCustomObject] [ordered] @{MessageList = $Messagelist;
                                             MACaddress = "n/a";
                                             IPcached = $false;
                                             IPpingable = $false;
+                                            UpDown = "Unknown";
                                             ItsMe = $false;
                                             Status = "Unknown";
                                             StatusCode = -1}
@@ -97,6 +102,8 @@ for ($i=1; $i -le 5; $i++) {
 
 }
 
+$Updown = "UnKnown"
+
 # PING first, ARP -A after that
 
 if (!$scripterror) {
@@ -106,16 +113,21 @@ if (!$scripterror) {
         }
         try {
             $ipnum = $null
-            if ($inputip -match "\w+") {
+            if (!$NumericAddress) {
                 $ipx = [System.Net.Dns]::GetHostAddresses($InputIp.Trim())
                 if ($ipx) {
                     # write-host "ipx"
                     $Ipnum = $ipx.IPAddressToSTring
-                    $Global:ResultObject.IPaddress = $ipnum                    
+                    if ($ipnum.count) {
+                        $Global:ResultObject.IPaddress = $ipnum[0] 
+                    }
+                    else {
+                        $Global:ResultObject.IPaddress = $ipnum
+                    }                   
                 }
                 else {
                     # write-host "no ipx"
-                    $Global:ResultObject.IPaddress = $inputip  
+                    $Global:ResultObject.IPaddress = "Not Found"  
                 }
             }
             else {
@@ -126,6 +138,7 @@ if (!$scripterror) {
             }
             $ping = Test-Connection -COmputerName $Global:ResultObject.IPaddress -Count 1
             $Global:ResultObject.IPpingable = $true
+            $Updown = "Up"
             
         }
         catch {
@@ -196,6 +209,74 @@ if (!$scripterror) {
     
 }
 
+# Determine Stopped/Started
+
+if (!$scripterror) {
+    try {
+        
+        if (!$NumericAddress) {
+            # Host with name => get bootfile
+            
+            $str = $ADHC_BootTime.Split("\")
+            $dir = $ADHC_OutputDirectory + $str[0]
+            $bootfile = $ADHC_OutputDirectory + $ADHC_BootTime.Replace($ADHC_Computer, $myHost)
+            $lt = Test-Path $bootfile
+            if (!$lt) {
+               $UpDown = "File not Found"
+            }
+        
+            # Read bootfile
+            $bootrec = Get-Content $bootfile
+            if (!$bootrec) {
+                $UpDown = "Record Not Found" 
+            }
+            else {
+                $bootsplit = $bootrec.Split("|")
+                $starttime = [datetime]::ParseExact($bootsplit[1],"dd-MM-yyyy HH:mm:ss",$null)
+                $stoptime = [datetime]::ParseExact($bootsplit[2],"dd-MM-yyyy HH:mm:ss",$null)
+
+                $now = Get-Date
+                            
+                $diff = NEW-TIMESPAN –Start $stoptime –End $now
+
+                if ($diff.TotalMinutes -gt 10) {
+                    $UpDown = "Down"    
+                } 
+                else {
+                    if ($diff.TotalMinutes -gt 6) {
+                        $UpDown = "Stopping?"
+                    }
+                    else {
+                        $Updown = "Up"
+                    }
+
+                }
+            
+                if ($log) {
+                    $bt = $starttime.ToString()
+                    $st = $stoptime.ToString()
+                    AddMessage "I" "==> Last boottime = $bt - Last endtime = $st - Node = $Updown"
+                }
+            }
+        }
+        else {
+            # Numeric IP Address
+            AddMessage "I" "==> Host name is IP address $inputip - Up/Down = $Updown" 
+            
+        }
+        $Global:ResultObject.UpDown = $Updown
+       
+    }
+    catch {
+        if ($log) {
+            AddMessage "E" "==> Getting boottime failed for $myHost"
+          
+        }
+        $scripterror = $true
+        $errortext = $error[0]
+        $scripterrormsg = "==> Getting boottime failed for $myHost - $errortext"
+    }
+}
 
 
 if ($log) {
@@ -222,7 +303,10 @@ else {
         $Global:ResultObject.Status = "Cached and Pingable"
         $Global:ResultObject.StatusCode = 9
     }
-}      
+}
+
+#$Global:ResultObject.MessageList  
+#$Global:ResultObject 
 
 return $Global:ResultObject
 
