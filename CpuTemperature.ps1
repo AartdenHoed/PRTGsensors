@@ -26,7 +26,7 @@ function Running-Elevated
 $myhost = $myhost.ToUpper()
 
 
-$ScriptVersion = " -- Version: 1.9"
+$ScriptVersion = " -- Version: 1.9.1"
 
 # COMMON coding
 CLS
@@ -506,8 +506,8 @@ if ($scripterror) {
 }
 else {
     $ErrorValue.InnerText = "0"
-    
-    $message = "Machine $myhost (now $livestat) *** CPU type: $cputype *** Timestamp: $timestamp ($online) *** Script $scriptversion"
+    $formattime = $timestamp.ToString("dd-MM-yyyy HH:mm:ss")
+    $message = "Machine $myhost (now $livestat) *** CPU type: $cputype *** Timestamp: $formattime ($online) *** Script $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
