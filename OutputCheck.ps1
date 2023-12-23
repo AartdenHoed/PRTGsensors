@@ -4,7 +4,7 @@
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.1.2"
+$ScriptVersion = " -- Version: 1.1.3"
 
 # COMMON coding
 CLS
@@ -238,6 +238,9 @@ if (!$scripterror) {
                             $dshost = "<nocheck>"
                         }
                         "#OVERALL" {
+                            $dshost = "<nocheck>"
+                        }
+                        "Analysis" {
                             $dshost = "<nocheck>"
                         }
                         "CURRENT"  {
