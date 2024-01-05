@@ -6,11 +6,11 @@ param (
     [int]$sensorid = 77 
 )
 # $LOGGING = 'YES'
-# $myHost = "hoesto"
+$myHost = "adhc-2"
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 1.0.4"
+$ScriptVersion = " -- Version: 2.0.1"
 
 # COMMON coding
 CLS
@@ -207,7 +207,7 @@ if (!$scripterror) {
         $dr = Test-Path $ServiceListFile
         $timestamp = Get-Date
         if (!$dr) {
-            $rec = "$MyHost|INIT||||||||||||||" + $timestamp.ToString("dd-MM-yyyy HH:mm:ss")
+            $rec = "$MyHost|INIT||||||||||||||||" + $timestamp.ToString("dd-MM-yyyy HH:mm:ss")
             Set-Content $ServiceListFile  $rec -force
         }
         
@@ -220,9 +220,13 @@ if (!$scripterror) {
                 Add-Content $logfile "==> Node is down, get info from dataset"
             }
             $Servicelines = Get-Content $ServiceListFile
-            
+            $firstread = $true
             
             foreach ($entry in $Servicelines) {
+                if ($firstread) {
+                    $firstread = $false
+                    break               # skip header
+                }
                 $split = $entry.Split("|")
                 $sysname = $split[1]
                 if ($sysname -eq "INIT") { 
@@ -242,13 +246,15 @@ if (!$scripterror) {
                                                         Status         = "n/a";
                                                         ExitCode       = 999
                                                         Description    = "n/a";
+                                                        DirNAme        = "n/a";
                                                         ProgramName    = "n/a";
+                                                        Parameter      = "";
                                                         Software       = "Unknown"
                                                         Timestamp      = $timestamp}                
                 }
                 else {
                                 
-                    $ComputerName     = $split[0]
+                    $ComputerName= $split[0]
                     $SystemName  = $split[1]                                                        
                     $Name        = $split[2]
                     $Caption     = $split[3]
@@ -261,9 +267,11 @@ if (!$scripterror) {
                     $Status      = $split[10]
                     $ExitCode    = $split[11]
                     $Description = $split[12]
-                    $ProgramName = $split[13]
-                    $Software    = $split[14]                               
-                    $timestamp = [datetime]::ParseExact($split[15].Trim(),"dd-MM-yyyy HH:mm:ss",$null)
+                    $DirNAme     = $split[13]                                                       
+                    $ProgramName = $split[14]
+                    $Parameter   = $split[15]
+                    $Software    = $split[16]                               
+                    $timestamp = [datetime]::ParseExact($split[17].Trim(),"dd-MM-yyyy HH:mm:ss",$null)
                     $obj = [PSCustomObject] [ordered] @{ComputerName = $ComputerName ;
                                                         SystemName     = $SystemName ;
                                                         Name           = $Name ;
@@ -277,7 +285,9 @@ if (!$scripterror) {
                                                         Status         = $Status;
                                                         ExitCode       = $ExitCode;
                                                         Description    = $Description;
+                                                        Dirname        = $DirNAme;
                                                         ProgramName    = $ProgramName;
+                                                        Parameter      = $Parameter;
                                                         Software       = $Software;
                                                         Timestamp      = $timestamp}      
                 }
@@ -300,32 +310,46 @@ if (!$scripterror) {
             foreach ($service in $ServiceInfo){
                 # Determine program name without arguments
                 $thispath = $service.PathName
-                $ProgramName = ''
-                if ($thispath -match '"(.*?)"') {
-                    $ProgramName = $matches[1]
-                }
-                else {
-                    if ($thispath -match '(.*?)\s'){
-                        $ProgramName = $matches[1]
+                if ($thispath -ne $null) {
+                
+                    $thispath = $thispath.Replace('"', '') 
+
+                    
+                    if ($thispath.toupper() -match "\w+\.EXE\s*") {
+                        $pname = $matches[0].Trim()
+                        $epos = $thispath.ToUpper().IndexOf($pname)
+                        $DirName = $thispath.substring(0, $epos-1)
+     
+                        $ProgramName = $thispath.substring($epos,$pname.Length)
+                    }
+                    $FullName = $Dirname + '\' + $ProgramName
+                                       
+                    if ($FullName -eq $thispath) {
+                        $Parameter = ''
                     }
                     else {
-                        $ProgramName = $thispath    
+                        $Parameter = $thispath.Replace($FullName + " ", '')
+                    }
+
+                    # Guess program name form directory name
+                    $software = " "
+                    $spl = $FullName.Split("\")
+                    if ($spl.count -eq 3) {
+                        $software = $spl[1]
+                    }
+                    else {
+                        $software = $spl[2]
+                    }
+                    if (-not $Software) {
+                        $Software = "Unknown"
                     }
                 }
-                if (-not $ProgramName) {
-                    $ProgramName = "Unknown"
-                }
-                # Guess program name form directory name
-                $software = " "
-                $spl = $ProgramName.Split("\")
-                if ($spl.count -eq 3) {
-                    $software = $spl[1]
-                }
                 else {
-                    $software = $spl[2]
-                }
-                if (-not $Software) {
                     $Software = "Unknown"
+                    $Parameter = ''
+                    $Dirname = "Unknown"
+                    $ProgramName = "Unknown"
+
                 }
                 
                 $obj = [PSCustomObject] [ordered] @{ComputerName = $service.PSComputerName ;
@@ -341,12 +365,14 @@ if (!$scripterror) {
                                                         Status         = $service.Status;
                                                         ExitCode       = $service.ExitCode;
                                                         Description    = $service.Description;
+                                                        DirNAme        = $DirNAme;
                                                         ProgramName    = $ProgramName;
+                                                        Parameter      = $Parameter;
                                                         Software       = $Software;
                                                         Timestamp      = $timestamp}      
                 $servicelist += $obj
                 
-                $record = $obj.PSComputerName + "|" +
+                $record = $obj.ComputerName + "|" +
                           $obj.SystemName + "|" +
                           $obj.Name + "|" +
                           $obj.Caption + "|" +
@@ -359,12 +385,16 @@ if (!$scripterror) {
                           $obj.Status  + "|" +
                           $obj.ExitCode  + "|" +
                           $obj.Description  + "|" +
+                          $Obj.DirName + "|" +
                           $obj.ProgramName  + "|" +
+                          $obj.Parameter + "|" + 
                           $obj.Software + "|" +
                           $timestring
             
                 if ($firstrec) {
-                    Set-Content $ServiceListfile $record
+                    $header = "PSComputerName|SystemName|Name|Caption|DisplayName|PathName|ServiceType|StartMode|Started|State|Status|ExitCode|Description|DirName|ProgramName|Parameter|Software|TimeStamp"
+                    Set-Content $ServiceListfile $header
+                    Add-Content $ServiceListfile $record
                     # Write-host "First"
                     $firstrec = $false
                 }
@@ -384,6 +414,7 @@ if (!$scripterror) {
         $scripterror = $true
         $errortext = $error[0]
         $scripterrormsg = "==> Processing Service info failed for $myHost - $errortext"
+        # exit
     }
 }
 
