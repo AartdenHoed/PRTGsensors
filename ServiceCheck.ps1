@@ -6,11 +6,11 @@ param (
     [int]$sensorid = 77 
 )
 # $LOGGING = 'YES'
-$myHost = "adhc-2"
+# $myHost = "ADHC-2"
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 2.0.1"
+$ScriptVersion = " -- Version: 2.2"
 
 # COMMON coding
 CLS
@@ -193,6 +193,9 @@ if (!$scripterror) {
 
 }
 
+$CheckDate = Get-Date
+$timestring = $CheckDate.ToString("dd-MM-yyyy HH:mm:ss")
+
 if (!$scripterror) {
     try {
         # 
@@ -205,9 +208,9 @@ if (!$scripterror) {
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
         $ServiceListFile = $ADHC_OutputDirectory + $ADHC_ServiceList.Replace($ADHC_Computer, $myHost)
         $dr = Test-Path $ServiceListFile
-        $timestamp = Get-Date
+        
         if (!$dr) {
-            $rec = "$MyHost|INIT||||||||||||||||" + $timestamp.ToString("dd-MM-yyyy HH:mm:ss")
+            $rec = "$MyHost|INIT||||||||||||||||" + $CheckDate.ToString("dd-MM-yyyy HH:mm:ss")
             Set-Content $ServiceListFile  $rec -force
         }
         
@@ -225,14 +228,13 @@ if (!$scripterror) {
             foreach ($entry in $Servicelines) {
                 if ($firstread) {
                     $firstread = $false
-                    break               # skip header
+                    continue               # skip header
                 }
                 $split = $entry.Split("|")
                 $sysname = $split[1]
                 if ($sysname -eq "INIT") { 
                     # Status INIT, and no realtime info available
-                    $timestamp = [datetime]::ParseExact($split[15].Trim(),"dd-MM-yyyy HH:mm:ss",$null)
-
+                   
                     $obj = [PSCustomObject] [ordered] @{ComputerName = $myhost ;
                                                         SystemName     = $sysname ;
                                                         Name           = "Unknown";
@@ -250,7 +252,7 @@ if (!$scripterror) {
                                                         ProgramName    = "n/a";
                                                         Parameter      = "";
                                                         Software       = "Unknown"
-                                                        Timestamp      = $timestamp}                
+                                                        CheckDate      = $CheckDate}                
                 }
                 else {
                                 
@@ -271,7 +273,7 @@ if (!$scripterror) {
                     $ProgramName = $split[14]
                     $Parameter   = $split[15]
                     $Software    = $split[16]                               
-                    $timestamp = [datetime]::ParseExact($split[17].Trim(),"dd-MM-yyyy HH:mm:ss",$null)
+                    $CheckDate = [datetime]::ParseExact($split[17].Trim(),"dd-MM-yyyy HH:mm:ss",$null)
                     $obj = [PSCustomObject] [ordered] @{ComputerName = $ComputerName ;
                                                         SystemName     = $SystemName ;
                                                         Name           = $Name ;
@@ -289,7 +291,7 @@ if (!$scripterror) {
                                                         ProgramName    = $ProgramName;
                                                         Parameter      = $Parameter;
                                                         Software       = $Software;
-                                                        Timestamp      = $timestamp}      
+                                                        CheckDate      = $CheckDate}      
                 }
                 $servicelist += $obj
                 
@@ -304,11 +306,13 @@ if (!$scripterror) {
             }         
             
             $firstrec = $true
-            $timestamp = Get-Date
-            $timestring = $timestamp.ToString("dd-MM-yyyy HH:mm:ss")
-
+            
             foreach ($service in $ServiceInfo){
                 # Determine program name without arguments
+                if ($service.Description -eq $null) {
+                    $service.Description = "n/a"
+                }
+                # Write-Host $service.Name
                 $thispath = $service.PathName
                 if ($thispath -ne $null) {
                 
@@ -365,11 +369,11 @@ if (!$scripterror) {
                                                         Status         = $service.Status;
                                                         ExitCode       = $service.ExitCode;
                                                         Description    = $service.Description;
-                                                        DirNAme        = $DirNAme;
+                                                        DirName        = $DirName;
                                                         ProgramName    = $ProgramName;
                                                         Parameter      = $Parameter;
                                                         Software       = $Software;
-                                                        Timestamp      = $timestamp}      
+                                                        CheckDate      = $CheckDate}      
                 $servicelist += $obj
                 
                 $record = $obj.ComputerName + "|" +
@@ -392,7 +396,7 @@ if (!$scripterror) {
                           $timestring
             
                 if ($firstrec) {
-                    $header = "PSComputerName|SystemName|Name|Caption|DisplayName|PathName|ServiceType|StartMode|Started|State|Status|ExitCode|Description|DirName|ProgramName|Parameter|Software|TimeStamp"
+                    $header = "PSComputerName|SystemName|Name|Caption|DisplayName|PathName|ServiceType|StartMode|Started|State|Status|ExitCode|Description|DirName|ProgramName|Parameter|Software|CheckDate"
                     Set-Content $ServiceListfile $header
                     Add-Content $ServiceListfile $record
                     # Write-host "First"
@@ -400,6 +404,146 @@ if (!$scripterror) {
                 }
                 else { 
                     Add-Content $ServiceListfile $record
+                }
+                # Update database
+                $query = "SELECT * FROM dbo.Services WHERE SystemName = '" + $obj.SystemName + 
+                            "' AND Name = '" + $obj.Name + 
+                            "' AND ChangeState = 'Current'" 
+                $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                        -Query "$query" `
+                        -ErrorAction Stop
+                if ($DBresult -ne $null) {
+                    if ($DBresult.Dirname.Trim() -eq $obj.DirName.Trim() -and $DBresult.ProgramName.Trim() -eq $obj.ProgramName.Trim() -and $DBresult.Parameter.Trim() -eq $obj.Parameter.Trim()) {
+                        # service not changed, just update CheckDate
+                        # Write-Host "Service not changed, just update checkdate"
+                        $query = "UPDATE dbo.Services
+                                   SET [PSComputerNAme] = '" + $obj.ComputerName + "'
+                                      ,[Caption] = '"        + $obj.Caption      + "'
+                                      ,[DisplayName] = '"    + $obj.DisplayName  + "'  
+                                      ,[PathName] = '"       + $obj.PathName     + "'
+                                      ,[ServiceType] = '"    + $obj.ServiceType  + "'
+                                      ,[StartMode] = '"      + $obj.StartMode    + "'
+                                      ,[Started] = '"        + $obj.Started      + "'
+                                      ,[State] = '"          + $obj.State        + "'
+                                      ,[Status] = '"         + $obj.Status       + "'
+                                      ,[ExitCode] = "        + $obj.ExitCode     + "
+                                      ,[Description] = '"    + $obj.Description.Replace("'","''")  + "'
+                                      ,[DirName] = '"        + $Obj.DirName      + "'
+                                      ,[ProgramName] = '"    + $obj.ProgramName  + "'
+                                      ,[Parameter] = '"      + $obj.Parameter    + "'
+                                      ,[CheckDate] = '"      + $timestring       + 
+                                      "' WHERE SystemName = '" + $obj.SystemName + 
+                                         "' AND Name = '" + $obj.Name + 
+                                         "' AND ChangeState = 'Current'"   
+                        $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                        -Query "$query" `
+                        -ErrorAction Stop  
+                    }
+                    else {
+                        # Service Changed. Turn current record to old, and insert new current record with new startime
+                        # Write-Host "Service changed, set chagestate to old and create new current record"
+                        $query = "UPDATE dbo.Services
+                                   SET [ChangeState] = 'Old'
+                                      ,[CheckDate] = '"      + $timestring       + 
+                                      "' WHERE SystemName = '" + $obj.SystemName + 
+                                         "' AND Name = '" + $obj.Name + 
+                                         "' AND ChangeState = 'Current'"   
+                        $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                                    -Query "$query" `
+                                    -ErrorAction Stop  
+                        $query = "INSERT INTO dbo.Services
+                               ([PSComputerNAme]
+                               ,[SystemName]
+                               ,[Name]
+                               ,[Caption]
+                               ,[DisplayName]
+                               ,[PathName]
+                               ,[ServiceType]
+                               ,[StartMode]
+                               ,[Started]
+                               ,[State]
+                               ,[Status]
+                               ,[ExitCode]
+                               ,[Description]
+                               ,[DirName]
+                               ,[ProgramName]
+                               ,[Parameter]
+                               ,[ChangeState]
+                               ,[StartDate]
+                               ,[CheckDate]
+                               ,[ComponentID])
+                            VALUES
+                                ('" + $obj.ComputerName + "','"+
+                                        $obj.SystemName   + "','"+
+                                        $obj.Name         + "','"+
+                                        $obj.Caption      + "','"+
+                                        $obj.DisplayName  + "','"+  
+                                        $obj.PathName     + "','"+
+                                        $obj.ServiceType  + "','"+
+                                        $obj.StartMode    + "','"+
+                                        $obj.Started      + "','"+
+                                        $obj.State        + "','"+
+                                        $obj.Status       + "',"+
+                                        $obj.ExitCode     + ",'"+
+                                        $obj.Description.Replace("'","''")  + "','"+
+                                        $Obj.DirName      + "','"+
+                                        $obj.ProgramName  + "','"+
+                                        $obj.Parameter    + "','Current','"+
+                                        $timestring       + "','"+
+                                        $timestring       + "',0)"    
+                        $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                            -Query "$query" `
+                            -ErrorAction Stop 
+                    }
+
+                }
+                else {
+                    # service not yet in database, so add it
+                    # Write-Host "Service not yet in database, so add it"
+                    $query = "INSERT INTO dbo.Services
+                               ([PSComputerNAme]
+                               ,[SystemName]
+                               ,[Name]
+                               ,[Caption]
+                               ,[DisplayName]
+                               ,[PathName]
+                               ,[ServiceType]
+                               ,[StartMode]
+                               ,[Started]
+                               ,[State]
+                               ,[Status]
+                               ,[ExitCode]
+                               ,[Description]
+                               ,[DirName]
+                               ,[ProgramName]
+                               ,[Parameter]
+                               ,[ChangeState]
+                               ,[StartDate]
+                               ,[CheckDate]
+                               ,[ComponentID])
+                            VALUES
+                                ('" + $obj.ComputerName + "','"+
+                                        $obj.SystemName   + "','"+
+                                        $obj.Name         + "','"+
+                                        $obj.Caption      + "','"+
+                                        $obj.DisplayName  + "','"+  
+                                        $obj.PathName     + "','"+
+                                        $obj.ServiceType  + "','"+
+                                        $obj.StartMode    + "','"+
+                                        $obj.Started      + "','"+
+                                        $obj.State        + "','"+
+                                        $obj.Status       + "',"+
+                                        $obj.ExitCode     + ",'"+
+                                        $obj.Description.Replace("'","''")  + "','"+
+                                        $Obj.DirName      + "','"+
+                                        $obj.ProgramName  + "','"+
+                                        $obj.Parameter    + "','Current','"+
+                                        $timestring       + "','"+
+                                        $timestring       + "',0)"    
+                $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                        -Query "$query" `
+                        -ErrorAction Stop 
+                                       
                 }
             }
                         
@@ -418,6 +562,36 @@ if (!$scripterror) {
     }
 }
 
+
+# Set all service thta have not been found anymore to OLD
+$query = "UPDATE dbo.Services
+	    SET ChangeState = 'Old', CheckDate = '" + $timestring + 
+        "' WHERE SystemName = '" +$myhost + "' AND ChangeState = 'Current' AND CheckDate < '" + $timestring + "'  SELECT @@ROWCOUNT"
+$DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                        -Query "$query" `
+                        -ErrorAction Stop 
+$del = $DBresult.Item(0)
+Write-Host "Deleted $del"
+
+$query = "Select Count(*)
+            From dbo.Services
+            WHERE SystemName = '" + $myhost + "' AND ((ChangeState = 'Current' AND StartDate > (DATEADD(hour,-8,GETDATE())))
+                                                            OR
+                                                       (ChangeState = 'Old'AND CheckDate > (DATEADD(hour,-8,GETDATE()))))"  
+$DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                        -Query "$query" `
+                        -ErrorAction Stop 
+$recent8hours = $DBresult.Item(0)
+
+$query = "Select Count(*)
+            From dbo.Services
+            WHERE SystemName = '" + $myhost + "' AND ((ChangeState = 'Current' AND StartDate > (DATEADD(day,-8,GETDATE())))
+                                                            OR
+                                                       (ChangeState = 'Old'AND CheckDate > (DATEADD(day,-8,GETDATE()))))"  
+$DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                        -Query "$query" `
+                        -ErrorAction Stop 
+$recent8days = $DBresult.Item(0)
 
 $nrofservices = $servicelist.Count
 
@@ -498,7 +672,7 @@ $Value.Innertext = $duration
     
 [void]$PRTG.AppendChild($Result)
 
-# Service status
+# Service status (total number of services) 
 $Result = $xmldoc.CreateElement('Result')
 $Channel = $xmldoc.CreateElement('Channel')
 $Value = $xmldoc.CreateElement('Value')    
@@ -508,12 +682,62 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 $ValueLookup =  $xmldoc.CreateElement('ValueLookup')
     
-$Channel.InnerText = "Service Status"
+$Channel.InnerText = "Total number of services"
 $Unit.InnerText = "Custom"
 $Mode.Innertext = "Absolute"
 $ValueLookup.Innertext = 'ServiceStatus'
 
-$Value.Innertext = 0    #====================== LET OP
+$Value.Innertext = $nrofservices
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($NotifyChanged)
+[void]$Result.AppendChild($Mode)
+    
+[void]$PRTG.AppendChild($Result)
+
+# Service status (changes last 8 hours) 
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')    
+$Unit = $xmldoc.CreateElement('Unit')
+$CustomUnit = $xmldoc.CreateElement('CustomUnit')
+$Mode = $xmldoc.CreateElement('Mode')
+$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+$ValueLookup =  $xmldoc.CreateElement('ValueLookup')
+    
+$Channel.InnerText = "Service changes last 8 hours"
+$Unit.InnerText = "Custom"
+$Mode.Innertext = "Absolute"
+$ValueLookup.Innertext = 'ServiceStatus'
+
+$Value.Innertext = $recent8hours
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($NotifyChanged)
+[void]$Result.AppendChild($Mode)
+    
+[void]$PRTG.AppendChild($Result)
+
+# Service status (changes last 8 days) 
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')    
+$Unit = $xmldoc.CreateElement('Unit')
+$CustomUnit = $xmldoc.CreateElement('CustomUnit')
+$Mode = $xmldoc.CreateElement('Mode')
+$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+$ValueLookup =  $xmldoc.CreateElement('ValueLookup')
+    
+$Channel.InnerText = "Service changes last 8 days"
+$Unit.InnerText = "Custom"
+$Mode.Innertext = "Absolute"
+$ValueLookup.Innertext = 'ServiceStatus'
+
+$Value.Innertext = $recent8days
 
 [void]$Result.AppendChild($Channel)
 [void]$Result.AppendChild($Value)
@@ -534,8 +758,8 @@ if ($scripterror) {
 }
 else {
     $ErrorValue.InnerText = "0"
-    $formattime = $timestamp.ToString("dd-MM-yyyy HH:mm:ss")
-    $message = "Machine $myhost (now $livestat) *** $nrofservices Services found *** Timestamp: $formattime ($online) *** Script $scriptversion"
+    $formattime = $CheckDate.ToString("dd-MM-yyyy HH:mm:ss")
+    $message = "Machine $myhost (now $livestat) *** $nrofservices Services found *** $recent8hours | $recent8days Services changed last 8 hours | days *** Timestamp: $formattime ($online) *** Script $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
