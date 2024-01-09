@@ -462,7 +462,7 @@ if (!$scripterror) {
                         -Query "$query" `
                         -ErrorAction Stop 
             $del = $DBresult.Item(0)
-            Write-Host "Deleted $del"                        
+            # Write-Host "Deleted $del"                        
         }        
 
     }   
