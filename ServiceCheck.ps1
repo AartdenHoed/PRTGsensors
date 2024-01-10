@@ -10,7 +10,7 @@ param (
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.0"
+$ScriptVersion = " -- Version: 3.0.1"
 
 # COMMON coding
 CLS
@@ -194,7 +194,7 @@ if (!$scripterror) {
 }
 
 $CheckDate = Get-Date
-$timestring = $CheckDate.ToString("dd-MM-yyyy HH:mm:ss")
+$timestring = $CheckDate.ToString("yyyy-MM-ddTHH:mm:ss")
 
 if (!$scripterror) {
     try {
