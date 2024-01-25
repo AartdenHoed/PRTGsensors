@@ -10,7 +10,7 @@ param (
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.0.1"
+$ScriptVersion = " -- Version: 3.0.2"
 
 # COMMON coding
 CLS
@@ -212,7 +212,7 @@ if (!$scripterror) {
             }
 
             $query = "Select Count(*)
-                        From dbo.Services
+                        From dbo.Service
                         WHERE SystemName = '" + $myhost + "' AND ChangeState = 'Current'"  
             $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
                         -Query "$query" `
@@ -309,7 +309,7 @@ if (!$scripterror) {
                                 
                  
                 # Update database
-                $query = "SELECT * FROM dbo.Services WHERE SystemName = '" + $obj.SystemName + 
+                $query = "SELECT * FROM dbo.Service WHERE SystemName = '" + $obj.SystemName + 
                             "' AND Name = '" + $obj.Name + 
                             "' AND ChangeState = 'Current'" 
                 $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
@@ -319,7 +319,7 @@ if (!$scripterror) {
                     if ($DBresult.Dirname.Trim() -eq $obj.DirName.Trim() -and $DBresult.ProgramName.Trim() -eq $obj.ProgramName.Trim() -and $DBresult.Parameter.Trim() -eq $obj.Parameter.Trim()) {
                         # service not changed, just update CheckDate
                         # Write-Host "Service not changed, just update checkdate"
-                        $query = "UPDATE dbo.Services
+                        $query = "UPDATE dbo.Service
                                    SET [PSComputerNAme] = '" + $obj.ComputerName + "'
                                       ,[Caption] = '"        + $obj.Caption      + "'
                                       ,[Suffix] = '"         + $obj.Suffix       + "'
@@ -346,7 +346,7 @@ if (!$scripterror) {
                     else {
                         # Service Changed. Turn current record to old, and insert new current record with new startime
                         # Write-Host "Service changed, set chagestate to old and create new current record"
-                        $query = "UPDATE dbo.Services
+                        $query = "UPDATE dbo.Service
                                    SET [ChangeState] = 'Old'
                                       ,[CheckDate] = '"      + $timestring       + 
                                       "' WHERE SystemName = '" + $obj.SystemName + 
@@ -355,7 +355,7 @@ if (!$scripterror) {
                         $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
                                     -Query "$query" `
                                     -ErrorAction Stop  
-                        $query = "INSERT INTO dbo.Services
+                        $query = "INSERT INTO dbo.Service
                                ([PSComputerNAme]
                                ,[SystemName]
                                ,[Name]
@@ -406,7 +406,7 @@ if (!$scripterror) {
                 else {
                     # service not yet in database, so add it
                     # Write-Host "Service not yet in database, so add it"
-                    $query = "INSERT INTO dbo.Services
+                    $query = "INSERT INTO dbo.Service
                                ([PSComputerNAme]
                                ,[SystemName]
                                ,[Name]
@@ -455,7 +455,7 @@ if (!$scripterror) {
                 }
             }
             # Set all service that have not been found anymore to OLD
-            $query = "UPDATE dbo.Services
+            $query = "UPDATE dbo.Service
 	                SET ChangeState = 'Old', CheckDate = '" + $timestring + 
                      "' WHERE SystemName = '" +$myhost + "' AND ChangeState = 'Current' AND CheckDate < '" + $timestring + "'  SELECT @@ROWCOUNT"
                     $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
@@ -481,7 +481,7 @@ if (!$scripterror) {
 if (!$scripterror) {
 
     $query = "Select Count(*)
-                From dbo.Services
+                From dbo.Service
                 WHERE SystemName = '" + $myhost + "' AND ((ChangeState = 'Current' AND StartDate > (DATEADD(hour,-8,GETDATE())))
                                                                 OR
                                                            (ChangeState = 'Old' AND CheckDate > (DATEADD(hour,-8,GETDATE()))))"  
@@ -491,7 +491,7 @@ if (!$scripterror) {
     $recent8hours = $DBresult.Item(0)
 
     $query = "Select Count(*)
-                From dbo.Services
+                From dbo.Service
                 WHERE SystemName = '" + $myhost + "' AND ((ChangeState = 'Current' AND StartDate > (DATEADD(day,-8,GETDATE())))
                                                                 OR
                                                            (ChangeState = 'Old' AND CheckDate > (DATEADD(day,-8,GETDATE()))))"  
