@@ -1,16 +1,14 @@
-﻿
-
-param (
+﻿param (
     [string]$LOGGING = "YES", 
     [string]$myHost  = "NONE" ,
     [int]$sensorid = 77 
 )
 # $LOGGING = 'YES'
-# $myHost = "hoesto"
+# $myHost = "HOESTO"
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.0.2"
+$ScriptVersion = " -- Version: 3.1.2"
 
 # COMMON coding
 CLS
@@ -196,6 +194,41 @@ if (!$scripterror) {
 $CheckDate = Get-Date
 $timestring = $CheckDate.ToString("yyyy-MM-ddTHH:mm:ss")
 
+# Get computerID to use
+$query = "SELECT [ComputerID]      
+                FROM [dbo].[Computer]
+                WHERE ComputerName = '" + $myhost + "'"
+$DbResult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                            -Query "$query" `
+                            -ErrorAction Stop 
+if (!$DbResult) {
+    $scripterrormsg = "==> Host $myHost not found in database" 
+    if ($log) {
+        Add-Content $logfile $scripterrormsg          
+    }
+    $scripterror = $true
+}
+else {
+    $computerid = $DbResult.ComputerID
+}
+# Get componentID to use
+$query = "SELECT [ComponentID]      
+                FROM [dbo].[Component]
+                WHERE ComponentName = '*** Unknown ***'"
+$DbResult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                            -Query "$query" `
+                            -ErrorAction Stop 
+if (!$DbResult) {
+    $scripterrormsg = "==> Component '*** Unknown ***' not found in database" 
+    if ($log) {
+        Add-Content $logfile $scripterrormsg          
+    }
+    $scripterror = $true
+}
+else {
+    $componentid = $DbResult.ComponentID
+}
+
 if (!$scripterror) {
     try {
         # 
@@ -376,7 +409,8 @@ if (!$scripterror) {
                                ,[ChangeState]
                                ,[StartDate]
                                ,[CheckDate]
-                               ,[ComponentID])
+                               ,[ComponentID]
+                               ,[ComputerID)
                             VALUES
                                 ('" + $obj.ComputerName + "','"+
                                         $obj.SystemName   + "','"+
@@ -396,7 +430,9 @@ if (!$scripterror) {
                                         $obj.ProgramName  + "','"+
                                         $obj.Parameter    + "','Current','"+
                                         $timestring       + "','"+
-                                        $timestring       + "',0)"    
+                                        $timestring       + "'," +
+                                        $componentid + "," +
+                                        $computerid + ")"    
                         $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
                             -Query "$query" `
                             -ErrorAction Stop 
@@ -406,6 +442,9 @@ if (!$scripterror) {
                 else {
                     # service not yet in database, so add it
                     # Write-Host "Service not yet in database, so add it"
+                    # first determine computerid
+                    
+
                     $query = "INSERT INTO dbo.Service
                                ([PSComputerNAme]
                                ,[SystemName]
@@ -427,7 +466,8 @@ if (!$scripterror) {
                                ,[ChangeState]
                                ,[StartDate]
                                ,[CheckDate]
-                               ,[ComponentID])
+                               ,[ComponentID]
+                               ,[ComputerID])
                             VALUES
                                 ('" + $obj.ComputerName + "','"+
                                         $obj.SystemName   + "','"+
@@ -447,7 +487,9 @@ if (!$scripterror) {
                                         $obj.ProgramName  + "','"+
                                         $obj.Parameter    + "','Current','"+
                                         $timestring       + "','"+
-                                        $timestring       + "',0)"    
+                                        $timestring       + "'," +
+                                        $componentid + "," +
+                                        $computerid + ")"    
                 $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
                         -Query "$query" `
                         -ErrorAction Stop 
