@@ -1,26 +1,36 @@
 ﻿param (
      [string]$InputFile = "In"  ,
      [string]$OutputFile = "Out" ,
-     [string]$Action = "Move/COpy" ,
+     [string]$Action = "Move/Copy" ,
      [string]$Mode = "Replace/Append" ,
-     [string]$Messages = $Null,
+     [string]$Messages = "MSG",
      [string]$Lock = ""
 )
 #$InputFile = "D:/ADHC_Home/ADHC_Temp/WmicFiles/WMIC_ADHC.log"
 #$Action = "move"
 #$Mode = "Append"
-#$OutputFile = "D:/ADHC_Home/OneDrive/ADHC Output/WmicFiles/WMIC_ADHC.log"
-#$Messages = "JSON"
-#$Lock ="a,b"
+#$OutputFile = "D:/ADHC_Home/OneDrive/ADHC Output/WmicFiles/WMIC_ADHC.log"  
+#$Messages =   JSON   - return JSON
+#              MSG    - write-host messages
+#              SILENT - suppress messages
+#              OBJECT - return messages in object
+#              <filename> - write messages to <filename> 
+
+#$Lock ="Resource,Process"
+#$messages = "OBJECT"
 
 $Action = $Action.ToUpper()
 $Mode = $Mode.ToUpper()
+$Messages = $Messages.ToUpper()
 $Actionlist = @("MOVE","COPY")
 $Modelist = @("REPLACE","APPEND")
 
-$ScriptVersion = " -- Version: 1.3"
+$ScriptVersion = " -- Version: 1.4"
+$ReturnOBJ = [PSCustomObject] [ordered] @{AbEnd = $false;
+                                                  MessageList = @()
+                                                 }
 
-function Report ([string]$level, [string]$line) {
+function Report ([string]$level, [string]$line, [object] $Obj, [string] $target) {
     
     switch ($level) {
         ("N") {$rptline = $line}
@@ -38,46 +48,60 @@ function Report ([string]$level, [string]$line) {
         }
         ("C") {
             $rptline = "Change  *".Padright(10," ") + $line
-            $global:scriptchangex = $true
+            
         }
         ("W") {
             $rptline = "Warning *".Padright(10," ") + $line
-            $global:scriptactionx = $true
+            
         }
         ("E") {
             $rptline = "Error   *".Padright(10," ") + $line
-            $global:scripterrorx = $true
+            $Obj.AbEnd = $true
         }
         default {
             $rptline = "Error   *".Padright(10," ") + "Messagelevel $level is not valid"
-            $global:scripterrorx = $true
+            $Obj.AbEnd = $true
         }
     }
-    if ($global:writemsg) {
-        if ($global:JSON) {
-            $msgentry = [PSCustomObject] [ordered] @{Level = $level;
-                                             Message = $line}
-            $global:MessageList += $msgentry
-
+    
+    
+    switch ($Target) {
+        "MSG" {
+            Switch ($Level) {
+                "E" {Write-Error $rptline}
+                "W" {Write-Warning $rptline}
+                "A" {Write-Warning $rptline}
+                default {Write-Information $rptline}
+            }
         }
-        else {
+       
+        "JSON" {
+            $msgentry = [PSCustomObject] [ordered] @{Message = $rptline;
+                                                     Level = "I"}
+            $Obj.MessageList += $msgentry    
+        }
+        "SILENT" { }
+        "OBJECT" { 
+            
+            $msgentry = [PSCustomObject] [ordered] @{Message = $rptline;
+                                                     Level = "I"}
+            $Obj.MessageList += $msgentry
+        }
+        Default  { 
+            if (!(Test-Path $Messages)) {
+                Throw "Messages file $messages does not exist"
+            }
             Add-Content $Messages $rptline
-        }
+        }    
     }
-    else {
-        Write-Host $rptline
-    }
-
 }
 
-$global:scripterrorx = $false
-$global:MessageList = @()
 
 # COMMON coding
 Try {
     $InformationPreference = "Continue"
     $WarningPreference = "Continue"
-    $ErrorActionPreference = "Stop"
+    $ErrorActionPreference = "Continue"
 
     $Node = " -- Node: " + $env:COMPUTERNAME
     $d = Get-Date
@@ -90,62 +114,49 @@ Try {
     $FullScriptName = $MyInvocation.MyCommand.Definition
     $mypath = $FullScriptName.Replace($MyName, "")
 
+    $Scriptmsg = "*** STARTED *** " + $mypath + " -- PowerShell script " + $MyName + $ScriptVersion + $Datum + $Tijd +$Node
+    Report "N" $Scriptmsg $ReturnOBJ $Messages
+
     $LocalInitVar = $mypath + "InitVar.PS1"
-    & "$LocalInitVar" -JSON Silent
-    if (!$ADHC_InitSuccessfull) {
+    $InitObj = & "$LocalInitVar" "OBJECT"
+
+    if ($Initobj.AbEnd) {
         # Write-Warning "YES"
-        throw $ADHC_InitError
+        throw "INIT script $LocalInitVar Failed"
+
     }
+    foreach ($entry in $InitObj.MessageList){
+        Report $entry.Level $entry.Message $ReturnOBJ $Messages
+    }
+
+
 }
 Catch {
-    $global:scripterrorx = $true
+    
     $errortext = $error[0]
     $scripterrormsg = "Input validation failed - $errortext"
-    Report "E" "$scripterrormsg"
+    Report "E" "$scripterrormsg" $ReturnOBJ $Messages
 
 }
 
 # Determine input parameters and verify input
 
 
-if (!$global:scripterrorx) {
-    try {
-        if ($Messages) {
-            $global:writemsg = $true
-            if ($Messages.ToUpper() -eq "JSON") {
-                $global:JSON = $true
-            }
-            else {
-                $global:JSON = $false
-                if (!(Test-Path $Messages)) {
-                    Throw "Messages file $messages does not exist"
-                }
-            }
-        } 
-        else {
-            $global:writemsg = $false
-            $global:JSON = $false
-        }
-        
-        $Scriptmsg = "*** STARTED *** " + $mypath + " -- PowerShell script " + $MyName + $ScriptVersion + $Datum + $Tijd +$Node
-        Report "N" $Scriptmsg
-        if (!$global:JSON) { 
-            Write-Host $scriptmsg
-        }
-    
+if (!$ReturnObj.AbEnd) {
+    try {    
         $mymsg = "Input Validation: $Action file $InputFile to $Outputfile (mode: $Mode)"
-        Report "I"  $mymsg
+        Report "I"  $mymsg $ReturnOBJ $Messages
         if ($lock) {
-            Report "I" "... With lock parameters $lock"
+            Report "I" "... With lock parameters $lock" $ReturnOBJ $Messages
         }
-
-        if ($global:writemsg) {
-            $mymsg = "Messages will be written to $Messages"
+        switch ($Messages) {
+           "JSON"   {$mymsg = "Messages will be returned via JSON"}
+           "MSG"    {$mymsg = "Messages will be written to terminal"}
+           "SILENT" {$mymsg = "Messages will be suppressed"}
+           "OBJECT" {$mymsg = "Messages will be returned via OBJECT"}
+           default  {$mymsg = "Messages will be written to file $Messages"}
         }
-        else {
-            $mymsg = "Messages will be suppressed"
-        }
-        Report "I"  $mymsg
+        Report "I"  $mymsg $ReturnOBJ $Messages
 
         if (!(Test-Path $InputFile)) {
             Throw "Input file $InputFile does not exist"
@@ -174,26 +185,26 @@ if (!$global:scripterrorx) {
     
     }
     catch {    
-        $global:scripterrorx = $true
+        
         $errortext = $error[0]
         $scripterrormsg = "Input validation failed - $errortext"
-        Report "E" "$scripterrormsg" 
+        Report "E" "$scripterrormsg" $ReturnOBJ $Messages
     }
 }
 
-if (!$global:scripterrorx) {
+if (!$ReturnObj.AbEnd) {
     try {
-        Report "I" "Perform requested actions"
+        Report "I" "Perform requested actions" $ReturnOBJ $Messages
         if ($lock) {
-            $m = & $ADHC_LockScript "Lock" "$Resource" "$Process" "10" "SILENT"
+            $m = & $ADHC_LockScript "Lock" "$Resource" "$Process" "10" "OBJECT"
             $ENQfailed = $false
-            foreach ($msgentry in $m) {
+            foreach ($msgentry in $m.MessageList) {
                 $msglvl = $msgentry.level
                 if ($msglvl -eq "E") {
                     $EQNfailed = $true
                 }
                 $msgtext = $msgentry.Message
-                Report $msglvl $msgtext
+                Report $msglvl $msgtext $ReturnOBJ $Messages
             } 
             if ($ENQfailed) {
                 throw "ENQ Failed - Fatal error"
@@ -202,7 +213,7 @@ if (!$global:scripterrorx) {
         $outdir = Split-Path $Outputfile
         if (!(Test-Path $outdir)) {
             New-Item  -Path "$outdir" -ItemType directory -force | Out-Null
-            Report "I" "Directory $outdir did not exist but has been created now"
+            Report "I" "Directory $outdir did not exist but has been created now" $ReturnOBJ $Messages
         }
         if ($Action -eq "COPY") {
             if ($Mode -eq "REPLACE") {
@@ -238,22 +249,22 @@ if (!$global:scripterrorx) {
             $Messages = $OutputFile                           # from here messages are directed to output file
         }
 
-        Report "I" "$ACTION with $MODE $inputfile to $outputfile completed"
+        Report "I" "$ACTION with $MODE $inputfile to $outputfile completed" $ReturnOBJ $Messages
         if ($lock) {
-            $m = & $ADHC_LockScript "Free" "$Resource" "$Process" "10" "SILENT"
-            foreach ($msgentry in $m) {
+            $m = & $ADHC_LockScript "Free" "$Resource" "$Process" "10" "OBJECT"
+            foreach ($msgentry in $m.MessageList) {
                 $msglvl = $msgentry.level
                 $msgtext = $msgentry.Message
-                Report $msglvl $msgtext
+                Report $msglvl $msgtext $ReturnOBJ $Messages
             }            
         } 
               
     }
     catch {
-        $global:scripterrorx = $true
+        
         $errortext = $error[0]
         $scripterrormsg = "Requested actions failed - $errortext"
-        Report "E" "$scripterrormsg"
+        Report "E" "$scripterrormsg" $ReturnOBJ $Messages
     }
 }
 
@@ -261,16 +272,17 @@ $d = Get-Date
 $Datum = " -- Date: " + $d.ToString("dd-MM-yyyy")
 $Tijd = " -- Time: " + $d.ToString("HH:mm:ss")
 $Scriptmsg = "*** ENDED ***** " + $mypath + " -- PowerShell script " + $MyName + $ScriptVersion + $Datum + $Tijd +$Node
-Report "N" $Scriptmsg 
-if (!$global:JSON) {
-    Write-Host $scriptmsg
-}
-if ($global:JSON) {
-    $ReturnJSON = ConvertTo-JSON $global:MessageList  
-    return $ReturnJSON 
-}
-else {    
-    Return $global:MessageList   
-}
+Report "N" $Scriptmsg $ReturnOBJ $Messages
 
+    
+switch ($Messages) {        
+    "JSON" {
+        $ReturnJSON = ConvertTo-JSON $ReturnOBJ 
+        return $ReturnJSON 
+    } 
+    Default { 
+        return $Returnobj
+    }
+       
+}
 

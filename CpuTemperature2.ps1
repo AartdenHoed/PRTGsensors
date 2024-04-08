@@ -12,7 +12,7 @@
     $MyAuth = [PSCustomObject] [ordered] @{ID = $id;
                                            Principal = $p; 
                                            Administrator = $adm;
-                                           Version="1.0.1"}
+                                           Version="1.1"}
     return $MyAuth 
  } 
 $status = "Ok"
@@ -112,8 +112,8 @@ if ($status -eq "Ok") {
         }
     }
 }
-$Global:ReturnObject = [PSCustomObject] [ordered] @{Message = $msg;
+$ReturnObject = [PSCustomObject] [ordered] @{Message = $msg;
                                             MyStatus = $status;
                                             CPUlist = $CpuList}
 
-Return $Global:ReturnObject
+Return $ReturnObject

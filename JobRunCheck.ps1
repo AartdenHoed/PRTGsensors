@@ -8,13 +8,13 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 4.0.2"
+$ScriptVersion = " -- Version: 4.1"
 
 # COMMON coding
 CLS
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 $Node = " -- Node: " + $env:COMPUTERNAME
 $d = Get-Date
@@ -28,11 +28,12 @@ $FullScriptName = $MyInvocation.MyCommand.Definition
 $mypath = $FullScriptName.Replace($MyName, "")
 
 $LocalInitVar = $mypath + "InitVar.PS1" 
-& "$LocalInitVar" "SILENT"
+$InitObj = & "$LocalInitVar" "OBJECT"
 
-if (!$ADHC_InitSuccessfull) {
+if ($Initobj.AbEnd) {
     # Write-Warning "YES"
-    throw $ADHC_InitError
+    throw "INIT script $LocalInitVar Failed"
+
 }
 
 if ($LOGGING -eq "YES") {$log = $true} else {$log = $false}
@@ -52,6 +53,12 @@ if ($log) {
 
     $Scriptmsg = "Directory " + $mypath + " -- PowerShell script " + $MyName + $ScriptVersion + $Datum + $Tijd +$Node
     Set-Content $logfile $Scriptmsg 
+
+    foreach ($entry in $InitObj.MessageList){
+        $lvl = $entry.Level
+        $msg = $entry.Message
+        Add-COntent $logfile "($lvl) - $msg"
+    }
 
     $thisdate = Get-Date
     Add-Content $logfile "==> START $thisdate"

@@ -14,7 +14,7 @@ $ScriptVersion = " -- Version: 1.4"
 
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 $Node = " -- Node: " + $env:COMPUTERNAME
 $d = Get-Date
@@ -28,13 +28,15 @@ $FullScriptName = $MyInvocation.MyCommand.Definition
 $mypath = $FullScriptName.Replace($MyName, "")
 
 $LocalInitVar = $mypath + "InitVar.PS1"
-& "$LocalInitVar" -JSON Silent
-if (!$ADHC_InitSuccessfull) {
+$InitObj = & "$LocalInitVar" "OBJECT"
+
+if ($Initobj.AbEnd) {
     # Write-Warning "YES"
-    throw $ADHC_InitError
+    throw "INIT script $LocalInitVar Failed"
+
 }
 $MessageList = @()
-$Global:ResultObject = [PSCustomObject] [ordered] @{MessageList = $Messagelist;
+$ResultObject = [PSCustomObject] [ordered] @{MessageList = $Messagelist;
                                             IPinput = $InputIP;
                                             IPaddress = "n/a";
                                             MACaddress = "n/a";
@@ -44,10 +46,10 @@ $Global:ResultObject = [PSCustomObject] [ordered] @{MessageList = $Messagelist;
                                             ItsMe = $false;
                                             Status = "Unknown";
                                             StatusCode = -1}
-function AddMessage ([string]$level, [string]$msg) {
+function AddMessage ([string]$level, [string]$msg, [object]$obj) {
     $msgentry = [PSCustomObject] [ordered] @{Level = $level;
                                              Message = $msg}
-    $global:ResultObject.MessageList += $msgentry
+    $Obj.MessageList += $msgentry
     # Write-Host $msg
     
     return  
@@ -56,13 +58,19 @@ function AddMessage ([string]$level, [string]$msg) {
 
 if ($LOGGING -eq "YES") {$log = $true} else {$log = $false}
 
-$Scriptmsg = "Directory " + $mypath + " -- PowerShell script " + $MyName + $ScriptVersion + $Datum + $Tijd +$Node
-AddMessage "I" $Scriptmsg                                           
 
 if ($log) {
+    $Scriptmsg = "Directory " + $mypath + " -- PowerShell script " + $MyName + $ScriptVersion + $Datum + $Tijd +$Node
+    AddMessage "I" $Scriptmsg $ResultObject     
+
+    foreach ($entry in $InitObj.MessageList){
+        $lvl = $entry.Level
+        $msg = $entry.Message
+        AddMessage $lvl $msg $ResultObject
+    }                                
     $thisdate = Get-Date
-    AddMessage "I" "==> START $thisdate"
-    AddMessage "I" "Host = $inputIP, Logging = $LOGGING" 
+    AddMessage "I" "==> START $thisdate" $ResultObject
+    AddMessage "I" "Host = $inputIP, Logging = $LOGGING" $ResultObject
 }
 
 # END OF COMMON CODING
@@ -73,9 +81,9 @@ for ($i=1; $i -le 5; $i++) {
 
     try {
         $scripterror = $false
-        $Global:ResultObject.itsme = $false
+        $ResultObject.itsme = $false
         if ($log) {
-            AddMessage "I" "Get IP/Mac address from myself (attempt nr. $i)"
+            AddMessage "I" "Get IP/Mac address from myself (attempt nr. $i)" $ResultObject
         }
         $ComputerName = $env:computername
         $OrgSettings = Get-WmiObject Win32_NetworkAdapterConfiguration -ComputerName $ComputerName -EA Stop |  ? { $_.DNSDomain -eq "fritz.box" }
@@ -93,7 +101,7 @@ for ($i=1; $i -le 5; $i++) {
         $errortext = $error[0]
         $scripterrormsg = "Getting IP/MAC address failed - $errortext"
         if ($log) {
-           AddMessage "E" "$scripterrormsg"
+           AddMessage "E" "$scripterrormsg" $ResultObject
         }
         # wait before retry
         Start-Sleep -s 3
@@ -109,7 +117,7 @@ $Updown = "UnKnown"
 if (!$scripterror) {
     try {
         if ($log) {
-            AddMessage "I" "Perform PING"
+            AddMessage "I" "Perform PING" $ResultObject
         }
         try {
             $ipnum = $null
@@ -119,31 +127,31 @@ if (!$scripterror) {
                     # write-host "ipx"
                     $Ipnum = $ipx.IPAddressToSTring
                     if ($ipnum.count) {
-                        $Global:ResultObject.IPaddress = $ipnum[0] 
+                        $ResultObject.IPaddress = $ipnum[0] 
                     }
                     else {
-                        $Global:ResultObject.IPaddress = $ipnum
+                        $ResultObject.IPaddress = $ipnum
                     }                   
                 }
                 else {
                     # write-host "no ipx"
-                    $Global:ResultObject.IPaddress = "Not Found"  
+                    $ResultObject.IPaddress = "Not Found"  
                 }
             }
             else {
-                $Global:ResultObject.IPaddress = $inputip
+                $ResultObject.IPaddress = $inputip
             }
-            if ($myip -eq $Global:ResultObject.IPaddress) {
-                $Global:ResultObject.itsme = $true
+            if ($myip -eq $ResultObject.IPaddress) {
+                $ResultObject.itsme = $true
             }
-            $ping = Test-Connection -COmputerName $Global:ResultObject.IPaddress -Count 1
-            $Global:ResultObject.IPpingable = $true
+            $ping = Test-Connection -COmputerName $ResultObject.IPaddress -Count 1
+            $ResultObject.IPpingable = $true
             $Updown = "Up"
             
         }
         catch {
-            $Global:ResultObject.IPpingable = $false
-            $Global:ResultObject.IPaddress = $inputip
+            $ResultObject.IPpingable = $false
+            $ResultObject.IPaddress = $inputip
         }
     }
     catch {
@@ -152,7 +160,7 @@ if (!$scripterror) {
         
         $scripterrormsg = "Ping failed - $errortext"
         if ($log) {
-           AddMessage "E" "$scripterrormsg"
+           AddMessage "E" "$scripterrormsg" $ResultObject
         }
 
     }
@@ -166,35 +174,35 @@ if (!$scripterror) {
 
     try { 
         if ($log) {
-            AddMessage "I" "Get ARP -A info"
+            AddMessage "I" "Get ARP -A info" $ResultObject
         }
-        $Global:ResultObject.IPcached = $false
+        $ResultObject.IPcached = $false
         $arpa = (arp -a) 
         foreach ($line in $arpa) {
             # Write-Warning "Line: $line"
             $words =  $line.TrimStart() -split '\s+'
             $thisIP = $words[0].Trim()
-            if ($thisIP -eq $Global:ResultObject.IPaddress) {
+            if ($thisIP -eq $ResultObject.IPaddress) {
                 $thismac = $words[1] 
                 # Write-Warning "ThisMac: $thisMac"
                 if (!(($thisMac -eq "---") -or ($thisMac -eq "Address") -or ($thisMac -eq $null) -or ($thisMac -eq "ff-ff-ff-ff-ff-ff") -or ($thisMac -eq "static"))) {
-                    $Global:ResultObject.MACaddress = $thisMac.Replace("-",":")
-                    $Global:ResultObject.IPcached = $true
+                    $ResultObject.MACaddress = $thisMac.Replace("-",":")
+                    $ResultObject.IPcached = $true
                     break
                 }
                
             }
         }
-        if ($Global:ResultObject.ItsMe) {
-            if ($Global:ResultObject.IPcached) {        # if found in cache (not likely) then check correctness of MAC
+        if ($ResultObject.ItsMe) {
+            if ($ResultObject.IPcached) {        # if found in cache (not likely) then check correctness of MAC
                 If ($thismac -ne $mymac) {
                     $scripterror = $true
                     $scripterrormsg = "For IP $myip ARP -A reports MACaddress $thismac while it should be $mymac"
-                    AddMessage "E" "$scripterrormsg"
+                    AddMessage "E" "$scripterrormsg" $ResultObject
                    
                 }
             }
-           $Global:ResultObject.MACaddress = $mymac
+           $ResultObject.MACaddress = $mymac
         }
     }
     catch {
@@ -203,7 +211,7 @@ if (!$scripterror) {
         
         $scripterrormsg = "Getting ARP -A info failed - $errortext"
         if ($log) {
-           AddMessage "E" "$scripterrormsg"
+           AddMessage "E" "$scripterrormsg" $ResultObject
         }
     }
     
@@ -255,21 +263,21 @@ if (!$scripterror) {
                 if ($log) {
                     $bt = $starttime.ToString()
                     $st = $stoptime.ToString()
-                    AddMessage "I" "==> Last boottime = $bt - Last endtime = $st - Node = $Updown"
+                    AddMessage "I" "==> Last boottime = $bt - Last endtime = $st - Node = $Updown" $ResultObject
                 }
             }
         }
         else {
             # Numeric IP Address
-            AddMessage "I" "==> Host name is IP address $inputip - Up/Down = $Updown" 
+            AddMessage "I" "==> Host name is IP address $inputip - Up/Down = $Updown" $ResultObject
             
         }
-        $Global:ResultObject.UpDown = $Updown
+        $ResultObject.UpDown = $Updown
        
     }
     catch {
         if ($log) {
-            AddMessage "E" "==> Getting boottime failed for $myHost"
+            AddMessage "E" "==> Getting boottime failed for $myHost" $ResultObject
           
         }
         $scripterror = $true
@@ -281,34 +289,34 @@ if (!$scripterror) {
 
 if ($log) {
     $thisdate = Get-Date
-    AddMessage "I" "==> END $thisdate"
+    AddMessage "I" "==> END $thisdate" $ResultObject
 }
 
-$Global:ResultObject.Status = "InActive"
-$Global:ResultObject.StatusCode = 0
+$ResultObject.Status = "InActive"
+$ResultObject.StatusCode = 0
 If ($scripterror) {
-    $Global:ResultObject.Status = "Error"
-    $Global:ResultObject.StatusCode = 12
+    $ResultObject.Status = "Error"
+    $ResultObject.StatusCode = 12
 }
 else {
-    if (($Global:ResultObject.IPcached) -and (!$Global:ResultObject.IPpingable)) {
-        $Global:ResultObject.Status = "Cached, not Pingable"
-        $Global:ResultObject.StatusCode = 3
+    if (($ResultObject.IPcached) -and (!$ResultObject.IPpingable)) {
+        $ResultObject.Status = "Cached, not Pingable"
+        $ResultObject.StatusCode = 3
     }  
-    if (($Global:ResultObject.IPpingable) -and (!$Global:ResultObject.IPcached)) {
-        $Global:ResultObject.Status = "Not Cached, but Pingable"
-        $Global:ResultObject.StatusCode = 6
+    if (($ResultObject.IPpingable) -and (!$ResultObject.IPcached)) {
+        $ResultObject.Status = "Not Cached, but Pingable"
+        $ResultObject.StatusCode = 6
     }
-    if (($Global:ResultObject.IPpingable) -and ($Global:ResultObject.IPcached)) {
-        $Global:ResultObject.Status = "Cached and Pingable"
-        $Global:ResultObject.StatusCode = 9
+    if (($ResultObject.IPpingable) -and ($ResultObject.IPcached)) {
+        $ResultObject.Status = "Cached and Pingable"
+        $ResultObject.StatusCode = 9
     }
 }
 
-#$Global:ResultObject.MessageList  
-#$Global:ResultObject 
+#$ResultObject.MessageList  
+#$ResultObject 
 
-return $Global:ResultObject
+return $ResultObject
 
 
 

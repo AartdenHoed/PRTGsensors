@@ -8,13 +8,13 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 1.1"
+$ScriptVersion = " -- Version: 1.3"
 
 # COMMON coding
 CLS
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 $Node = " -- Node: " + $env:COMPUTERNAME
 $d = Get-Date
@@ -28,11 +28,12 @@ $FullScriptName = $MyInvocation.MyCommand.Definition
 $mypath = $FullScriptName.Replace($MyName, "")
 
 $LocalInitVar = $mypath + "InitVar.PS1" 
-& "$LocalInitVar" "SILENT"
+$InitObj = & "$LocalInitVar" "OBJECT"
 
-if (!$ADHC_InitSuccessfull) {
+if ($Initobj.AbEnd) {
     # Write-Warning "YES"
-    throw $ADHC_InitError
+    throw "INIT script $LocalInitVar Failed"
+
 }
 
 if ($LOGGING -eq "YES") {$log = $true} else {$log = $false}
@@ -52,6 +53,12 @@ if ($log) {
 
     $Scriptmsg = "Directory " + $mypath + " -- PowerShell script " + $MyName + $ScriptVersion + $Datum + $Tijd +$Node
     Set-Content $logfile $Scriptmsg 
+
+    foreach ($entry in $InitObj.MessageList){
+        $lvl = $entry.Level
+        $msg = $entry.Message
+        Add-COntent $logfile "($lvl) - $msg"
+    }
 
     $thisdate = Get-Date
     Add-Content $logfile "==> START $thisdate"
@@ -301,16 +308,32 @@ if (!$scripterror) {
             $action = 2
         }
 
-        $cm = & $ADHC_CopyMoveScript $TempFile $ofile "MOVE" "REPLACE" "JSON" "WMIC,$process"  
+        $cm1 = & $ADHC_CopyMoveScript $TempFile $ofile "MOVE" "REPLACE" "JSON" "WMIC,$process"  
 
         if ($log) {
-            foreach ($m in $cm.MessageList) {
+            $cmlist = ConvertFrom-Json $cm1
+            foreach ($m in $cmlist) {
                 $lvl = $m.Level
                 $msg = $m.Message
                 Add-Content $logfile "($lvl) - $msg"
 
             }
         }
+        # copy definitive file to analyses file
+
+        $anafile = $ADHC_WmicDirectory + "Analysis_Copy_" + $myhost.Replace("-","_") + ".txt"
+        $cm2 = & $ADHC_CopyMoveScript $ofile $anafile "COPY" "REPLACE" "JSON" "WMIC,$process"  
+
+        if ($log) {
+            $cmlist = ConvertFrom-Json $cm2
+            foreach ($m in $cmlist) {
+                $lvl = $m.Level
+                $msg = $m.Message
+                Add-Content $logfile "($lvl) - $msg"
+
+            }
+        }
+
     }
     else {
         $action = 0

@@ -1,28 +1,28 @@
-﻿$Version = " -- Version: 1.3.2"
+﻿$Version = " -- Version: 1.4"
 
 # COMMON coding
 CLS
 
 # init flags
-$global:scripterror = $false
-$global:scriptaction = $false
-$global:scriptchange = $false
-
-$global:recordslogged = $false
+$StatusOBJ = [PSCustomObject] [ordered] @{Scripterror = $false;
+                                          ScriptChange = $false;
+                                          ScriptAction = $false;
+                                          RecordsLogged = $false
+                                          }
 
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # ------------------ FUNCTIONS
-function Report ([string]$level, [string]$line) {
+function Report ([string]$level, [string]$line, [object]$Obj, [string]$file ) {
     switch ($level) {
         ("N") {$rptline = $line}
-        ("I") {
-            $rptline = "Info    *".Padright(10," ") + $line
-        }
         ("H") {
             $rptline = "-------->".Padright(10," ") + $line
+        }
+        ("I") {
+            $rptline = "Info    *".Padright(10," ") + $line
         }
         ("A") {
             $rptline = "Caution *".Padright(10," ") + $line
@@ -32,25 +32,28 @@ function Report ([string]$level, [string]$line) {
         }
         ("C") {
             $rptline = "Change  *".Padright(10," ") + $line
-            $global:scriptchange = $true
+            $obj.scriptchange = $true
         }
         ("W") {
             $rptline = "Warning *".Padright(10," ") + $line
-            $global:scriptaction = $true
+            $obj.scriptaction = $true
         }
         ("E") {
             $rptline = "Error   *".Padright(10," ") + $line
-            $global:scripterror = $true
-            
+            $obj.scripterror = $true
+        }
+        ("G") {
+            $rptline = "GIT:    *".Padright(10," ") + $line
         }
         default {
             $rptline = "Error   *".Padright(10," ") + "Messagelevel $level is not valid"
-            $global:scripterror = $true
+            $Obj.Scripterror = $true
         }
     }
-    Add-Content $tempfile $rptline
+    Add-Content $file $rptline
 
 }
+
 
 # ------------------------ END OF FUNCTIONS
 
@@ -65,27 +68,24 @@ $FullScriptName = $MyInvocation.MyCommand.Definition
 $mypath = $FullScriptName.Replace($MyName, "")
 
 $LocalInitVar = $mypath + "InitVar.PS1"
-& "$LocalInitVar"
+$InitObj = & "$LocalInitVar" "OBJECT"
 
-if (!$ADHC_InitSuccessfull) {
+if ($Initobj.AbEnd) {
     # Write-Warning "YES"
-    throw $ADHC_InitError
-}
+    throw "INIT script $LocalInitVar Failed"
 
-  
+}  
    
 # END OF COMMON CODING
 
 $gp = Get-Process -id $pid 
 $ProcessID = $gp.Id
-$ProcessName = $gp.Name
-      
+$ProcessName = $gp.Name      
 
 # Init reporting file
 $dir = $ADHC_TempDirectory + $ADHC_LocalCpuTemperature.Directory
 New-Item -ItemType Directory -Force -Path $dir | Out-Null
 $tempfile = $dir + $ADHC_LocalCpuTemperature.Name
-
 
 # Init jobstatus file
 $dir = $ADHC_OutputDirectory + $ADHC_Jobstatus
@@ -103,8 +103,6 @@ $mypath = $FullScriptName.Replace($MyName, "")
 
 $sensorscript = $mypath + "CpuTemperature.ps1"
 
-Report "I" "Started... sensor script = $sensorscript"
-
 do {
     $d = Get-Date
     $Datum = " -- Date: " + $d.ToString("dd-MM-yyyy")
@@ -113,30 +111,34 @@ do {
     $Scriptmsg = "*** STARTED *** " + $mypath + " -- PowerShell script " + $MyName + $Version + $Datum + $Tijd +$Node
     Write-Information $Scriptmsg 
     Set-Content $Tempfile $Scriptmsg -force
+    foreach ($entry in $InitObj.MessageList){
+        Report $entry.Level $entry.Message $StatusObj $Tempfile
+    }
 
 
-    Report "I" "Process name = $ProcessName, proces ID = $ProcessID"
+    Report "I" "Process name = $ProcessName, proces ID = $ProcessID" $StatusObj $Tempfile
 
-    Report "I"  "Iteration number $loop"
+    Report "I"  "Iteration number $loop" $StatusObj $Tempfile
         
     try {
-        
-        & "$Sensorscript" YES $ADHC_Computer 9000
+
+        Report "I" "Started... sensor script = $sensorscript" $StatusObj $Tempfile
+        $Sensor = & "$Sensorscript" YES $ADHC_Computer 9000
 
     }
     catch {
-        Report "E" "Error !!!"
+        Report "E" "Error !!!" $StatusObj $Tempfile
         $errorcount += 1
         $ErrorMessage = $_.Exception.Message
         $FailedItem = $_.Exception.ItemName
         $Dump = $_.Exception.ToSTring()
-        Report "E" "Message = $ErrorMessage"
-        Report "E" "Failed Item = $Faileditem"
-        Report "E" "Dump = $Dump"
+        Report "E" "Message = $ErrorMessage" $StatusObj $Tempfile
+        Report "E" "Failed Item = $Faileditem" $StatusObj $Tempfile
+        Report "E" "Dump = $Dump" $StatusObj $Tempfile
     } 
     finally {
        
-        if  ($global:scripterror) {
+        if  ($StatusObj.scripterror) {
              $dt = Get-Date
             $jobline = $ADHC_Computer + "|" + $process + "|" + "9" + "|" + $version + "|" + $dt.ToString("dd-MM-yyyy HH:mm:ss")
             Set-Content $jobstatus $jobline
@@ -145,29 +147,29 @@ do {
             Add-Content $jobstatus "Errormessage = $ErrorMessage"
             Add-Content $jobstatus "Dump info = $dump"
 
-            Report "E" "Failed item = $FailedItem"
-            Report "E" "Errormessage = $ErrorMessage"
-            Report "E" "Dump info = $dump"
+            Report "E" "Failed item = $FailedItem" $StatusObj $Tempfile
+            Report "E" "Errormessage = $ErrorMessage" $StatusObj $Tempfile
+            Report "E" "Dump info = $dump" $StatusObj $Tempfile
             }
         else {
-            Report "I" ">>> Script (iteration) ended normally $Datum $Tijd"
-            Report "N" " "
+            Report "I" ">>> Script (iteration) ended normally $Datum $Tijd" $StatusObj $Tempfile
+            Report "N" " " $StatusObj $Tempfile
    
             $dt = Get-Date
             $jobline = $ADHC_Computer + "|" + $process + "|" + "0" + "|" + $version + "|" + $dt.ToString("dd-MM-yyyy HH:mm:ss")
             Set-Content $jobstatus $jobline
 
         }
-        Report "I" "Wait 300 seconds..."
-        Report "N" " "
+        Report "I" "Wait 300 seconds..." $StatusObj $Tempfile
+        Report "N" " " $StatusObj $Tempfile
         try { #  copy temp file
         
             $deffile = $ADHC_OutputDirectory + $ADHC_LocalCpuTemperature.Directory + $ADHC_LocalCpuTemperature.Name 
             if ($loop -eq 1) {
-                & $ADHC_CopyMoveScript $TempFile $deffile "MOVE" "REPLACE" $TempFile  
+                $CopMov = & $ADHC_CopyMoveScript $TempFile $deffile "MOVE" "REPLACE" $TempFile  
             }
             else {
-                & $ADHC_CopyMoveScript $TempFile $deffile "MOVE" "APPEND" $TempFile 
+                $CopMov = & $ADHC_CopyMoveScript $TempFile $deffile "MOVE" "APPEND" $TempFile 
             }
         }
         Catch {
@@ -190,4 +192,4 @@ do {
 
 } Until ($errorcount -gt 10)
 
-Report "I" "Ended with error count = $errorcount"
+Report "I" "Ended with error count = $errorcount" $StatusObj $Tempfile

@@ -57,10 +57,10 @@ else {
 # write-host $info
 
 
-$Global:VpnObject = [PSCustomObject] [ordered] @{IpAddress = $ip;
+$VpnObject = [PSCustomObject] [ordered] @{IpAddress = $ip;
                                             Info = $info;
                                             Status = $status}
 
 # write-host "Exit"
 
-return $Global:VpnObject
+return $VpnObject

@@ -4,25 +4,32 @@ param (
     [string]$EnqName = "EnqName",
     [string]$Process = "Process", 
     [int] $Duration = 10,
-    [string] $Mode = "xx" 
+    [string] $Messages = "MSG" 
 )
+#$Message =   JSON   - return JSON
+#              MSG    - write-host messages
+#              SILENT - suppress messages
+#              OBJECT - return messages in object
+#              <filename> - write messages to <filename> 
 
 #TestValues####################################
 #$Action = "FREE"
 #$ENQNAME = "DEPLOY"
 #$PROCESS = "Ikkuh"
 #$waittime = 15
-#$Mode = "SILENT"
+#$Messages = "OBJECT"
 #TestValues####################################
-$Version = " -- Version: 3.4.1"
-$Mode = $mode.ToUpper()
+$Version = " -- Version: 3.5"
+$Messages = $Messages.ToUpper()
 $Waittime = 150
 
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
-$global:MessageList = @()
+$ReturnOBJ = [PSCustomObject] [ordered] @{AbEnd = $false;
+                                                  MessageList = @()
+                                                 }
 
 
 class GlobalLockException : System.Exception  { 
@@ -40,13 +47,70 @@ function CreateLockRecord ([string]$Status, [string]$Machine, [string]$Who, [str
     $record = $Status.ToUpper() + "|" + $Machine + "|" + $Who + "|" + $What + "|" + $Start.ToSTring("dd-MM-yyyy HH:mm:ss") + "|" + $Stop.ToSTring("dd-MM-yyyy HH:mm:ss")
     return $record
 }
-function AddMessage ([string]$level, [string]$msg) {
-    $msgentry = [PSCustomObject] [ordered] @{Level = $level;
-                                             Message = $msg}
-    $global:MessageList += $msgentry
-    # Write-Host $msg
+function Report ([string]$level, [string]$line, [object] $Obj, [string] $target) {
     
-    return  
+    switch ($level) {
+        ("N") {$rptline = $line}
+        ("I") {
+            $rptline = "Info    *".Padright(10," ") + $line
+        }
+        ("H") {
+            $rptline = "-------->".Padright(10," ") + $line
+        }
+        ("A") {
+            $rptline = "Caution *".Padright(10," ") + $line
+        }
+        ("B") {
+            $rptline = "        *".Padright(10," ") + $line
+        }
+        ("C") {
+            $rptline = "Change  *".Padright(10," ") + $line
+            
+        }
+        ("W") {
+            $rptline = "Warning *".Padright(10," ") + $line
+            
+        }
+        ("E") {
+            $rptline = "Error   *".Padright(10," ") + $line
+            $Obj.AbEnd = $true
+        }
+        default {
+            $rptline = "Error   *".Padright(10," ") + "Messagelevel $level is not valid"
+            $Obj.AbEnd = $true
+        }
+    }
+    
+    
+    switch ($Target) {
+        "MSG" {
+            Switch ($Level) {
+                "E" {Write-Error $rptline}
+                "W" {Write-Warning $rptline}
+                "A" {Write-Warning $rptline}
+                default {Write-Information $rptline}
+            }
+        }
+       
+        "JSON" {
+            $msgentry = [PSCustomObject] [ordered] @{Message = $rptline;
+                                                     Level = "I"}
+            $Obj.MessageList += $msgentry    
+        }
+        "SILENT" { }
+        "OBJECT" { 
+            
+            $msgentry = [PSCustomObject] [ordered] @{Message = $rptline;
+                                                     Level = "I"}
+            $Obj.MessageList += $msgentry
+        }
+        Default  { 
+            if (!(Test-Path $Messages)) {
+                Throw "Messages file $messages does not exist"
+            }
+            Add-Content $Messages $rptline
+        }    
+    }
 }
 
 function Lock ([string]$InternalAction, [string]$Machine, [string]$Who, [string]$What) {
@@ -81,7 +145,7 @@ function Lock ([string]$InternalAction, [string]$Machine, [string]$Who, [string]
                 
                 $RetryCount += 1
                 $ResourceFree = $True
-                AddMessage "I" "Try number $RetryCOunt to lock resource $what for process $Process on computer $Computer"  
+                Report "I" "Try number $RetryCOunt to lock resource $what for process $Process on computer $Computer" $ReturnOBJ $Messages
                         
                 foreach ($entry in $locklist) {
                     
@@ -99,7 +163,7 @@ function Lock ([string]$InternalAction, [string]$Machine, [string]$Who, [string]
                         $i2 = [datetime]::ParseExact("01-01-2000 00:10:00","dd-MM-yyyy HH:mm:ss",$null)
                         $lockrecord = CreateLockRecord "FREE" "???" "????" "DEPLOY" $i1 $i2
                         Set-Content $E $lockrecord -force    
-                        AddMessage "A" "Lockfile $E is corrupted, and has been bypassed" 
+                        Report "A" "Lockfile $E is corrupted, and has been bypassed" $ReturnOBJ $Messages
                         $lockbits = $lockrecord.Split("|") 
                     }
                     # $lockbits
@@ -117,10 +181,8 @@ function Lock ([string]$InternalAction, [string]$Machine, [string]$Who, [string]
                         if ($lockuntil -gt $now) {   # Resource is locked by a process
                             $ResourceFree = $false
                             $msg = "Resource $lockenqname locked by process $lockprocess on computer $lockmachine Until $u"  
-                            AddMessage "I" $msg
-                            if (($Mode -ne "JSON") -and ($Mode -ne "SILENT"))  {
-                                Write-Host $msg
-                            } 
+                            Report "I" $msg $ReturnOBJ $Messages
+                            
                         }
                                             
                     }
@@ -128,14 +190,12 @@ function Lock ([string]$InternalAction, [string]$Machine, [string]$Who, [string]
                 } 
                 if (!$ResourceFree) { 
                     $msg = "Resource $what not available now. Wait for $waittime seconds" 
-                    AddMessage "A" $msg
-                    if (($Mode -ne "JSON") -and ($Mode -ne "SILENT")) {
-                        Write-Host $msg
-                    } 
+                    Report "A" $msg $ReturnOBJ $Messages
+                    
                     Start-Sleep -s $waittime
                 } 
                 else {
-                    AddMessage "I" "Resource $what not locked by any other process" 
+                    Report "I" "Resource $what not locked by any other process" $ReturnOBJ $Messages
                 }
             } until ($ResourceFree)
             
@@ -152,7 +212,7 @@ function Lock ([string]$InternalAction, [string]$Machine, [string]$Who, [string]
             $R = CreateLockRecord "LOCK" $Computer $Process $EnqName $Now $End
             $u = $End.ToString("dd-MM-yyyy HH:mm:ss")
             Set-Content $LockFullNAme $R  
-            AddMessage "I" "Process $Process on computer $Computer locked resource $what successfully now until $u"
+            Report "I" "Process $Process on computer $Computer locked resource $what successfully now until $u" $ReturnOBJ $Messages
             return "ok"                
  
         }
@@ -172,7 +232,7 @@ function Lock ([string]$InternalAction, [string]$Machine, [string]$Who, [string]
             $lockuntil   = [datetime]::ParseExact($lockbits[5],"dd-MM-yyyy HH:mm:ss",$null)
             $R = CreateLockRecord "FREE" $Computer $Process $EnqName $lockfrom $lockuntil
             Set-Content $LockFullNAme $R 
-            AddMessage "I" "Resource $what freed by process $Process on computer $COmputer"
+            Report "I" "Resource $what freed by process $Process on computer $COmputer" $ReturnOBJ $Messages
             return "ok" 
         }
         "VRFY"{
@@ -206,11 +266,11 @@ function Lock ([string]$InternalAction, [string]$Machine, [string]$Who, [string]
             } 
             
             if (!$ResourceFree) { 
-                AddMessage "A" "Failed to verify resource $what for process $Process on computer $Computer" 
+                Report "A" "Failed to verify resource $what for process $Process on computer $Computer" $ReturnOBJ $Messages
                 return "nok"
             }
             else {
-                AddMessage "I" "Resource $what succesfully verified for process $Process on computer $Computer" 
+                Report "I" "Resource $what succesfully verified for process $Process on computer $Computer" $ReturnOBJ $Messages
                 return "ok"
             }            
 
@@ -238,20 +298,19 @@ try {
     $myname = $MyInvocation.MyCommand.Name
     $Scriptmsg = "*** STARTED *** " + $mypath + " -- PowerShell script " + $MyName + $Version + $Datum + $Tijd +$Node
 
-    AddMessage "N" $Scriptmsg
-    if (($Mode -ne "JSON") -and ($Mode -ne "SILENT")) {
-        Write-Host $scriptmsg
-    }
-
-    $LocalInitVar = $mypath + "InitVar.PS1"  
-    & "$LocalInitVar" -JSON Silent
+    Report "N" $Scriptmsg $ReturnOBJ $Messages
     
-    if (!$ADHC_InitSuccessfull) {
-        # Write-Warning "YES"
-        throw $ADHC_InitError
-    }  
+    $LocalInitVar = $mypath + "InitVar.PS1"
+    $InitObj = & "$LocalInitVar" "OBJECT"
 
-    $EnqSuccess = $true
+    if ($Initobj.AbEnd) {
+        # Write-Warning "YES"
+        throw "INIT script $LocalInitVar Failed"
+
+    }
+    foreach ($entry in $InitObj.MessageList){
+        Report $entry.Level $entry.Message $ReturnOBJ $Messages
+    }
 
     # ENQ Name
     $Computer = $ADHC_Computer
@@ -272,7 +331,7 @@ try {
             throw $MyError
         }
         else {
-            AddMessage "A" "Onedrive no longer available... could not FREE resource $Enqname for process $process on computer $computer"
+            Report "A" "Onedrive no longer available... could not FREE resource $Enqname for process $process on computer $computer" $ReturnOBJ $Messages
         }
        
     }
@@ -299,18 +358,18 @@ try {
                         $lockset = $true
                     }
                     else {                    
-                        AddMessage "A" "Resource $what could not be verified, retry..." 
+                        Report "A" "Resource $what could not be verified, retry..." $ReturnOBJ $Messages
                         $e = Lock "FREE" $Computer $process $EnqName
                     }
                 }
                 Catch {                   
                    $ErrorMessage = $_.Exception.Message
-                   AddMessage "A" "Lock failed due to external reason: " 
-                   AddMessage "A" $ErrorMessage
+                   Report "A" "Lock failed due to external reason: " $ReturnOBJ $Messages
+                   Report "A" $ErrorMessage $ReturnOBJ $Messages
                    $lockset = $false
                    Start-Sleep -Seconds 5
                    if ($trycount -ge 5) {
-                        AddMessage "A" "Persistent lock failure (5 attempts executed)"
+                        Report "A" "Persistent lock failure (5 attempts executed)" $ReturnOBJ $Messages
                         $MyError = [GlobalLockException]::new("Persistent lock failure (5 attempts executed)")
                         throw $MyError
                    }
@@ -327,7 +386,7 @@ try {
             }
             catch {
                 $ErrorMessage = $_.Exception.Message
-                AddMessage "A" "FREE action failed due to error: $Errormessage"
+                Report "A" "FREE action failed due to error: $Errormessage" $ReturnOBJ $Messages
             }           
 
         }
@@ -341,31 +400,23 @@ try {
 }
 Catch {
    $ErrorMessage = $_.Exception.Message
-   AddMessage  "E" $ErrorMessage
-   $EnqSuccess = $false
+   Report  "E" $ErrorMessage $ReturnOBJ $Messages
+   $ReturnObj.AbEnd = $true
     
 }
 $d = Get-Date
 $Datum = " -- Date: " + $d.ToString("dd-MM-yyyy")
 $Tijd = " -- Time: " + $d.ToString("HH:mm:ss")
 $Scriptmsg = "*** ENDED ***** " + $mypath + " -- PowerShell script " + $MyName + $Version + $Datum + $Tijd +$Node
-AddMessage "N" $Scriptmsg
+Report "N" $Scriptmsg $ReturnOBJ $Messages
 
-if (($Mode -ne "JSON") -and ($Mode -ne "SILENT")) {
-   
-    Write-Host $scriptmsg
-}
-
-
-if ($Mode.ToUpper() -eq  "JSON" ) {
+switch ($Messages) {        
+    "JSON" {
+        $ReturnJSON = ConvertTo-JSON $ReturnOBJ 
+        return $ReturnJSON 
+    } 
+    Default { 
+        return $Returnobj
+    }
        
-    $ReturnJSON = ConvertTo-JSON $global:MessageList     
-     
-    return $ReturnJSON 
 }
-else {
-    
-    Return $global:MessageList   
-}
-
-
