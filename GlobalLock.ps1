@@ -19,13 +19,13 @@ param (
 #$waittime = 15
 #$Messages = "OBJECT"
 #TestValues####################################
-$Version = " -- Version: 3.5"
+$Version = " -- Version: 3.5.1"
 $Messages = $Messages.ToUpper()
 $Waittime = 150
 
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
 
 $ReturnOBJ = [PSCustomObject] [ordered] @{AbEnd = $false;
                                                   MessageList = @()

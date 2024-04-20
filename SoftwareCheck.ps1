@@ -8,13 +8,13 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 1.3"
+$ScriptVersion = " -- Version: 1.3.1"
 
 # COMMON coding
 CLS
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
 
 $Node = " -- Node: " + $env:COMPUTERNAME
 $d = Get-Date

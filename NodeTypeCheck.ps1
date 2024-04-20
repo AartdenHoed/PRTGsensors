@@ -6,13 +6,13 @@
 
 $Ctype = $Ctype.ToUpper()
 
-$ScriptVersion = " -- Version: 2.1"
+$ScriptVersion = " -- Version: 2.1.1"
 
 # COMMON coding
 CLS
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
 
 $scripterror = $false
 

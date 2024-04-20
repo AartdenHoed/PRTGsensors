@@ -8,13 +8,13 @@ $NumericAddress = $inputip -match "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3
 
 $MyHost = $inputip.ToUpper()
 
-$ScriptVersion = " -- Version: 1.4"
+$ScriptVersion = " -- Version: 1.4.1"
 
 # COMMON coding
 
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
 
 $Node = " -- Node: " + $env:COMPUTERNAME
 $d = Get-Date

@@ -25,7 +25,7 @@ $Messages = $Messages.ToUpper()
 $Actionlist = @("MOVE","COPY")
 $Modelist = @("REPLACE","APPEND")
 
-$ScriptVersion = " -- Version: 1.4"
+$ScriptVersion = " -- Version: 1.4.1"
 $ReturnOBJ = [PSCustomObject] [ordered] @{AbEnd = $false;
                                                   MessageList = @()
                                                  }
@@ -101,7 +101,7 @@ function Report ([string]$level, [string]$line, [object] $Obj, [string] $target)
 Try {
     $InformationPreference = "Continue"
     $WarningPreference = "Continue"
-    $ErrorActionPreference = "Continue"
+    $ErrorActionPreference = "Stop"
 
     $Node = " -- Node: " + $env:COMPUTERNAME
     $d = Get-Date

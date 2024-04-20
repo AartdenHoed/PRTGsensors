@@ -8,13 +8,13 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 3.2"
+$ScriptVersion = " -- Version: 3.3"
 
 # COMMON coding
 CLS
 $InformationPreference = "Continue"
 $WarningPreference = "Continue"
-$ErrorActionPreference = "Continue"
+$ErrorActionPreference = "Stop"
 
 $Node = " -- Node: " + $env:COMPUTERNAME
 $d = Get-Date
@@ -221,12 +221,12 @@ else {
 # Get componentID to use
 $query = "SELECT [ComponentID]      
                 FROM [dbo].[Component]
-                WHERE ComponentName = '*** Unknown ***'"
+                WHERE ComponentNameTemplate = '*** Unknown ***'"
 $DbResult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
                             -Query "$query" `
                             -ErrorAction Stop 
 if (!$DbResult) {
-    $scripterrormsg = "==> Component '*** Unknown ***' not found in database" 
+    $scripterrormsg = "==> Component(Template) '*** Unknown ***' not found in database" 
     if ($log) {
         Add-Content $logfile $scripterrormsg          
     }
