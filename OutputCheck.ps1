@@ -4,7 +4,7 @@
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.2.1"
+$ScriptVersion = " -- Version: 1.2.2"
 
 # COMMON coding
 CLS
@@ -282,8 +282,13 @@ if (!$scripterror) {
                     else {
                         
                         if ($thishost.Uptime -le 120) {
-                            $thisds = $ilist | Where-Object Fullname -eq $fname   
-                            $dsstate = $thisds.State                                                                         
+                            $thisds = $ilist | Where-Object Fullname -eq $fname 
+                            if ($thisds.State) { 
+                                $dsstate = $thisds.State 
+                            }
+                            else {
+                                $dsstate = "C"
+                            }                                                                        
                         }                        
                         else{                            
                             $dsstate = "O"
