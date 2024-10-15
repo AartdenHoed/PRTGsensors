@@ -3,7 +3,7 @@
     [int]$sensorid = 77   
 )
 
-$ScriptVersion = " -- Version: 3.6.1"
+$ScriptVersion = " -- Version: 3.7"
 
 # COMMON coding
 CLS
@@ -173,10 +173,10 @@ if (!$scripterror) {
 	      ,arp.[MACaddress] as arpMACaddress
           ,db.AltMAC as dbAltMAC
           ,db.Authorized as Authorized
-      FROM [PRTG].[dbo].[IPadressen] db      
-      full outer join [PRTG].[dbo].[ARP] arp on db.IPaddress = arp.IPaddress 
-      WHERE db.Authorized = 'Y'or db.Pingable = 'Y'or arp.IPaddress <> ''
-      order by db.IPaddress"
+          ,db.Pingable as Pingable
+          FROM [PRTG].[dbo].[IPadressen] db      
+          full outer join [PRTG].[dbo].[ARP] arp on db.IPaddress = arp.IPaddress 
+          order by db.IPaddress"
     $joinresult = invoke-sqlcmd -ServerInstance ".\SQLEXPRESS" -Database "PRTG" `
                     -Query "$query" `
                     -ErrorAction Stop
@@ -193,23 +193,22 @@ if (!$scripterror) {
     }
 
     foreach ($entry in $joinresult) {
+        $display = $false
         
         if ([string]::IsNullOrEmpty($entry.dbIPaddress)) {
              $unknownIP = $true
              $somethingrotten = $true
+             $display = $true
         }
         else { 
-            if (!($entry.dbIPaddress.Trim() -match "^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")) {
-                # NO ip address. Just check for numerics. No check on valid range (0-255) needed
-                # don't add it to list
-                continue
-            }
+            
             $unknownIP = $false
 
-            if ($entry.Authorized -ne "Y") {
+            if (($entry.Authorized -ne "Y") -and (($entry.Pingable -eq "Y") -or (![string]::IsNullOrEmpty($entry.arpIPaddress)))) {
                 $IPstatus = "** Illegal **, "
                 $somethingrotten = $true
                 $illegal = $true
+                $display = $true
             }
             else {
                 $IPstatus = ""
@@ -217,30 +216,15 @@ if (!$scripterror) {
             }
           
             if  ([string]::IsNullOrEmpty($entry.arpMACaddress)) {
+                $cached = $false
                 $IPstatus = $IPstatus + "Not cached"
                 $wrongMAC = $false
                 $altmac = $false
             }
             else {
+                $cached = $true
                 $IPstatus = $IPstatus + "Cached"
-            }
-            try {
-                $pingable = $true
-                $ping = Test-Connection -COmputerName $entry.dbIPaddress.Trim() -Count 1
-            }
-            catch {
-                $pingable = $false    
-            }
-            finally {
-                if ($pingable) {
-                    $IPstatus = $IPstatus +", Pingable"
-                }
-                else {
-                    $IPstatus = $IPstatus +", Not pingable"
-                }
-            }
-
-            if ($IPstatus -eq "Cached") {
+                # CHeck whether the Mac Addresses match, if available
                 if ($entry.dbMACaddress.ToUpper() -eq $entry.arpMACaddress.ToUpper()) { 
                     $wrongMAC = $false
                     $altMAC = $false
@@ -262,7 +246,30 @@ if (!$scripterror) {
                         $somethingrotten = $true
                     }
                 }
+           
             }
+
+            # Ping only authorized addresses (otherwise it will be too much cpu cycles for the sensor)
+            if ($entry.Authorized -eq "Y") {
+                $display = $true
+                try {
+                    $pingable = $true
+                    $ping = Test-Connection -COmputerName $entry.dbIPaddress.Trim() -Count 1
+                }
+                catch {
+                    $pingable = $false    
+                }
+                finally {
+                    if ($pingable) {
+                        $IPstatus = $IPstatus +", Pingable"
+                    }
+                    else {
+                        $IPstatus = $IPstatus +", Not pingable"
+                    }
+                }
+            }
+
+            
             
         }
    
@@ -275,7 +282,11 @@ if (!$scripterror) {
                                             wrongMAC = $wrongMAC; 
                                             altMAC = $altMAC;
                                             IPstatus = $IPstatus;
-                                            Illegal = $Illegal}
+                                            Illegal = $Illegal;
+                                            Pingable = $entry.Pingable;
+                                            Cached = $cached;
+                                            Authorized = $entry.Authorized;
+                                            Display = $display}
         $resultlist += $obj
     
     } 
@@ -349,6 +360,10 @@ else {
 [void]$PRTG.AppendChild($Result)
 
 foreach ($item in $resultlist) {
+    if (!$item.display) {
+        # Skip if not to be displayed
+        continue
+    }
     $useIP = $item.dbIP
     if ([string]::IsNullOrEmpty($item.dbIP)) {
         $useIP = $item.arpIP
@@ -372,48 +387,25 @@ foreach ($item in $resultlist) {
     $Unit.InnerText = "Custom"
     $Mode.Innertext = "Absolute"
     $ValueLookup.Innertext = 'IndividualIPStatus'
-
-    switch ($item.IPstatus) {
-        "Cached, Pingable" { 
-            $thisval = 0
-            $cacheping +=1
-        }
-        "Not cached, Pingable" {
-            $thisval = 1
-            $nocacheping +=1
-        }
-        "Cached, Not pingable" { 
-            $thisval = 2
-            $cachenoping += 1
-        }
-        "Not cached, Not pingable" {
-            $thisval = 3
-            $nocachenoping += 1
-        }  
-        "** Illegal **, Cached, Pingable" { 
-            $thisval = 0
-            $cacheping +=1
-        }
-        "** Illegal **, Not cached, Pingable" {
-            $thisval = 1
-            $nocacheping +=1
-        }
-        "** Illegal **, Cached, Not pingable" { 
-            $thisval = 2
-            $cachenoping += 1
-        }
-        "** Illegal **, Not cached, Not pingable" {
-            $thisval = 3
-            $nocachenoping += 1
-        }        
-      
-        default {
-            $thisval = 8 
-            if ($log) {
-                Add-Content $logfile "==> IP-status $IPstatus unknown"
-            }  
-        }
+    
+   
+    if (($item.cached) -and ($item.Pingable -eq "Y")) {
+        $thisval = 0
+        $cacheping +=1
     }
+    if ((!$item.cached) -and ($item.Pingable -eq "Y")) {
+        $thisval = 1
+        $nocacheping +=1
+    }
+    if (($item.cached) -and ($item.Pingable -eq "N")) {
+        $thisval = 2
+        $cachenoping += 1
+    }
+    if ((!$item.cached) -and ($item.Pingable -eq "N")) {
+        $thisval = 3
+        $nocachenoping += 1
+    }  
+              
     if ($item.AltMAC) {
         $thisval = 4
         $nrofalternates = $nrofalternates + 1
