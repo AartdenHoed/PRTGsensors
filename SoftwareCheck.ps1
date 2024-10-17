@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 1.3.2"
+$ScriptVersion = " -- Version: 1.3.3"
 
 # COMMON coding
 CLS
@@ -325,7 +325,7 @@ if (!$scripterror) {
         $cm2 = & $ADHC_CopyMoveScript $ofile $anafile "COPY" "REPLACE" "JSON" "WMIC,$process"  
 
         if ($log) {
-            $cmlist = ConvertFrom-Json $cm2.
+            $cmlist = ConvertFrom-Json $cm2
             foreach ($m in $cmlist.MessageList) {
                 $lvl = $m.Level
                 $msg = $m.Message
