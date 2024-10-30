@@ -1,14 +1,15 @@
 ﻿param (
     [string]$LOGGING = "YES", 
-    [string]$myHost  = "NONE" ,
+    [string]$myHost  = "NONE",
     [int]$sensorid = 77 
 )
 # $LOGGING = 'YES'
 # $myHost = "ADHC-2"
 
 $myhost = $myhost.ToUpper()
+$logging = $logging.ToUpper()
 
-$ScriptVersion = " -- Version: 1.3.3"
+$ScriptVersion = " -- Version: 2.0"
 
 # COMMON coding
 CLS
@@ -37,6 +38,8 @@ if ($Initobj.AbEnd) {
 }
 
 if ($LOGGING -eq "YES") {$log = $true} else {$log = $false}
+
+# If LOGGING=YES create sensorlog if nog existent, and INIT it. 
 
 if ($log) {
     $dir = $ADHC_OutputDirectory + $ADHC_PRTGlogs
@@ -83,6 +86,7 @@ function WriteXmlToScreen ([xml]$xml)
 }
 
 # END OF COMMON CODING
+
 # Get Node status
 
 if (!$scripterror) {
@@ -114,6 +118,8 @@ if (!$scripterror) {
     }
 
 }
+
+# Run WMIC to get software inventory if system appears to be invokable
 
 if (!$scripterror) {
     $duration = 0
@@ -174,7 +180,7 @@ if (!$scripterror) {
                 $myjob | Remove-Job | Out-null
             }
             catch {
-                write-host "Catch"
+                # write-host "Catch"
                 $invokable = $false
             }
             finally {
@@ -189,64 +195,22 @@ if (!$scripterror) {
         }
         $scripterror = $true
         $errortext = $error[0]
-        $scripterrormsg = "==> Getting software info form host failed for $myHost - $errortext"
+        $scripterrormsg = "==> Getting software info from host failed for $myHost - $errortext"
     }
 
 }
 
+$nrofinstallationsWMIC = 0
+
 if (!$scripterror) {
-    try {
-        # 
-        if ($log) {
-            Add-Content $logfile "==> Process software info"
-        }
-                
-        if (!$invokable) {
-            # Node not invokable, get info from database
+    if ($invokable) {
+    # Node is UP, take real time WMIC info and write it tot dataset
+        try {
+            # 
+             if ($log) {
+                    Add-Content $logfile "==> Node is up, proces the WMIC output and write it to dataset"
+                } 
             
-            
-            if ($log) {
-                Add-Content $logfile "==> Node is down, get info from SQL database"
-            }
-
-            # get computer ID
-            $query = "Select ComputerID
-                        From dbo.Computer
-                        WHERE ComputerName = '" + $myhost + "'"  
-            $DbResult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
-                            -Query "$query" `
-                            -ErrorAction Stop 
-            if (!$DbResult) {
-                $scripterrormsg = "==> Host $myHost not found in database" 
-                if ($log) {
-                    Add-Content $logfile $scripterrormsg          
-                }
-                $scripterror = $true
-            }
-            else {
-                $computerid = $DbResult.ComputerID
-            }
-            
-
-            # get number of installations on that computer
-            $query = "Select Count(*)
-                        From dbo.Installation
-                        WHERE ComputerID = " + $computerID + " AND EndDatetime is NULL"  
-            $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
-                        -Query "$query" `
-                        -ErrorAction Stop 
-            $nrofinstallations = $DBresult.Item(0)
-            
-        }
-
-        else {
-            # Node is UP, take real time info and write it tot dataset
-               
-            if ($log) {
-                Add-Content $logfile "==> Node is up, get realtime info and write it to dataset"
-            } 
-            
-            $nrofinstallations = 0 
             $first = $true
             $currentdate = Get-Date
             $prefixdate = $currentdate.ToString("yyyy-MM-dd HH:mm:ss").TrimEnd()
@@ -273,30 +237,31 @@ if (!$scripterror) {
                         continue
                     }
                     $record = $record = $prefixcomp.Padright($lenhead1, " ") + $prefixdate.Padright($lenhead2, " ") + $software
-                    $nrofinstallations = $nrofinstallations + 1
+                    $nrofinstallationsWMIC = $nrofinstallationsWMIC + 1
                     Add-Content $TempFile $record -Encoding Unicode
-                }
-
+                } 
             }
-
- 
-        }
-    }   
-    catch {
-        if ($log) {
-            Add-Content $logfile "==> Processing Software info failed for $myHost"
+        }   
+        catch {
+            if ($log) {
+                Add-Content $logfile "==> Processing WMIC output failed for $myHost"
           
+            }
+            $scripterror = $true
+            $errortext = $error[0]
+            $scripterrormsg = "==> Processing WMIC output failed for $myHost - $errortext"
+            # exit
         }
-        $scripterror = $true
-        $errortext = $error[0]
-        $scripterrormsg = "==> Processing Software info failed for $myHost - $errortext"
-        # exit
+    }
+    else {
+        $nrofinstallationsWMIC = -1
     }
 }
 
+# copy tempfile to definitive file if it has been created (host invokable)
 if (!$scripterror) {
     if ($invokable) {
-        # copy tempfile to definitive file if it has been created (host invokable)
+        
         $now = Get-Date
         $yyyymmdd = $now.ToString("yyyyMMdd").TrimEnd()      
         $ofile = $ADHC_WmicDirectory + "WMIC_" + $myhost.Replace("-","_") + "_" + $yyyymmdd + ".txt"
@@ -343,6 +308,62 @@ if (!$scripterror) {
     
 
 }
+
+# Get info from database and compare it with WMIC info
+
+if (!$scripterror) {
+                     
+            
+    if ($log) {
+        Add-Content $logfile "==> Node is down, get info from SQL database"
+    }
+
+    # get computer ID
+    $query = "Select ComputerID
+                From dbo.Computer
+                WHERE ComputerName = '" + $myhost + "'"  
+    $DbResult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                    -Query "$query" `
+                    -ErrorAction Stop 
+    if (!$DbResult) {
+        $scripterrormsg = "==> Host $myHost not found in database" 
+        if ($log) {
+            Add-Content $logfile $scripterrormsg          
+        }
+        $scripterror = $true
+    }
+    else {
+        $computerid = $DbResult.ComputerID
+    }            
+
+    # get number of installations on that computer
+    $query = "Select SUM([Count])
+                From dbo.Installation
+                WHERE ComputerID = " + $computerID + " AND EndDatetime is NULL"  
+    $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                -Query "$query" `
+                -ErrorAction Stop 
+    $nrofinstallationsDB = $DBresult.Item(0)
+
+    # get number of unauthorized installations on that computer
+    $query = "Select count(*) From dbo.Installation I, dbo.Component C
+              WHERE i.ComponentID = c.ComponentID AND ComputerID = " + $computerid + " AND EndDatetime is NULL AND c.Authorized = 'N'  "
+    $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                -Query "$query" `
+                -ErrorAction Stop 
+    $nrofillegals = $DBresult.Item(0)
+            
+}
+
+# if no WMIC data available, no delta can be calculated
+if ($nrofinstallationsWMIC -lt 0) {
+    $installationdelta = 0
+    $nrofinstallationsWMIC = $nrofinstallationsDB
+}
+else {
+    $installationdelta = $nrofinstallationsWMIC - $nrofinstallationsDB
+}
+
 
 if ($log) {
     Add-Content $logfile "==> Create XML"
@@ -414,32 +435,115 @@ $Value.Innertext = $duration
     
 [void]$PRTG.AppendChild($Result)
 
-# Number of Software items
+# Number of Software items before
 $Result = $xmldoc.CreateElement('Result')
 $Channel = $xmldoc.CreateElement('Channel')
 $Value = $xmldoc.CreateElement('Value')    
 $Unit = $xmldoc.CreateElement('Unit')
 $CustomUnit = $xmldoc.CreateElement('CustomUnit')
 $Mode = $xmldoc.CreateElement('Mode')
-$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
-$ValueLookup =  $xmldoc.CreateElement('ValueLookup')
     
-$Channel.InnerText = "Total number of software items"
+$Channel.InnerText = "Software Count Before"
+$Value.Innertext = $nrofinstallationsDB
 $Unit.InnerText = "Custom"
+$CustomUnit.Innertext = "Number of installations"
 $Mode.Innertext = "Absolute"
-$ValueLookup.Innertext = 'Software Count'
 
-$Value.Innertext = $nrofinstallations
+$Value.Innertext = $nrofinstallationsDB
 
 [void]$Result.AppendChild($Channel)
 [void]$Result.AppendChild($Value)
 [void]$Result.AppendChild($Unit)
-[void]$Result.AppendChild($NotifyChanged)
+[void]$Result.AppendChild($Customunit)
 [void]$Result.AppendChild($Mode)
     
 [void]$PRTG.AppendChild($Result)
 
- # Report each JOB as Channel
+# Number of Software items after
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')    
+$Unit = $xmldoc.CreateElement('Unit')
+$CustomUnit = $xmldoc.CreateElement('CustomUnit')
+$Mode = $xmldoc.CreateElement('Mode')
+    
+$Channel.InnerText = "Software Count Now"
+$Value.Innertext = $nrofinstallationsWMIC
+$Unit.InnerText = "Custom"
+$CustomUnit.Innertext = "Number of installations"
+$Mode.Innertext = "Absolute"
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($Customunit)
+[void]$Result.AppendChild($Mode)
+    
+[void]$PRTG.AppendChild($Result)
+
+# Number of Software items delta
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')    
+$Unit = $xmldoc.CreateElement('Unit')
+$CustomUnit = $xmldoc.CreateElement('CustomUnit')
+$Mode = $xmldoc.CreateElement('Mode')
+$LimitMode = $xmldoc.CreateElement('LimitMode')
+$LimitMinError = $xmldoc.CreateElement('LimitMinError')
+$LimitMaxError = $xmldoc.CreateElement('LimitMaxError')
+    
+$Channel.InnerText = "Software Count Delta"
+$Value.Innertext = $installationDelta
+$Unit.InnerText = "Custom"
+$CustomUnit.Innertext = "Number of installations"
+$Mode.Innertext = "Absolute"
+$LimitMode.InnerText = "1"
+$LimitMinError.InnerText = "0"
+$LimitMaxError.InnerText = "0"
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($Customunit)
+[void]$Result.AppendChild($Mode)
+[void]$Result.AppendChild($LimitMode) 
+[void]$Result.AppendChild($LimitMinError) 
+[void]$Result.AppendChild($LimitMaxError)     
+    
+[void]$PRTG.AppendChild($Result)
+
+# Number of illegal software items
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')    
+$Unit = $xmldoc.CreateElement('Unit')
+$CustomUnit = $xmldoc.CreateElement('CustomUnit')
+$Mode = $xmldoc.CreateElement('Mode')
+$LimitMode = $xmldoc.CreateElement('LimitMode')
+$LimitMinError = $xmldoc.CreateElement('LimitMinError')
+$LimitMaxError = $xmldoc.CreateElement('LimitMaxError')
+    
+$Channel.InnerText = "Illegal Installations"
+$Value.Innertext = $nrofillegals
+$Unit.InnerText = "Custom"
+$CustomUnit.Innertext = "Number of installations"
+$Mode.Innertext = "Absolute"
+$LimitMode.InnerText = "1"
+$LimitMinError.InnerText = "0"
+$LimitMaxError.InnerText = "0"
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($Customunit)
+[void]$Result.AppendChild($Mode)
+[void]$Result.AppendChild($LimitMode) 
+[void]$Result.AppendChild($LimitMinError) 
+[void]$Result.AppendChild($LimitMaxError)     
+    
+[void]$PRTG.AppendChild($Result)
+
+ # Report file action (replace or create)
 $Result = $xmldoc.CreateElement('Result')
 $Channel = $xmldoc.CreateElement('Channel')
 $Value = $xmldoc.CreateElement('Value')
@@ -503,7 +607,7 @@ if ($scripterror) {
 else {
     $ErrorValue.InnerText = "0"
     $formattime = $d.ToString("dd-MM-yyyy HH:mm:ss")
-    $message = "Machine $myhost (now $livestat) *** $nrofinstallations Software instances found *** $nrofdsn datasets waiting to be processed *** Timestamp: $formattime ($online) *** Script $scriptversion"
+    $message = "Machine $myhost (now $livestat) *** $nrofinstallationsWMIC Software instances found *** $nrofdsn datasets waiting to be processed *** Timestamp: $formattime ($online) *** Script $scriptversion"
     $ErrorText.InnerText = $message
 } 
 [void]$PRTG.AppendChild($ErrorValue)
