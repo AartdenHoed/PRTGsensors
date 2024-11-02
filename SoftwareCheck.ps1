@@ -9,7 +9,7 @@
 $myhost = $myhost.ToUpper()
 $logging = $logging.ToUpper()
 
-$ScriptVersion = " -- Version: 2.0"
+$ScriptVersion = " -- Version: 2.0.1"
 
 # COMMON coding
 CLS
@@ -446,7 +446,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $Channel.InnerText = "Software Count Before"
 $Value.Innertext = $nrofinstallationsDB
 $Unit.InnerText = "Custom"
-$CustomUnit.Innertext = "Number of installations"
+$CustomUnit.Innertext = "Installations"
 $Mode.Innertext = "Absolute"
 
 $Value.Innertext = $nrofinstallationsDB
@@ -470,7 +470,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $Channel.InnerText = "Software Count Now"
 $Value.Innertext = $nrofinstallationsWMIC
 $Unit.InnerText = "Custom"
-$CustomUnit.Innertext = "Number of installations"
+$CustomUnit.Innertext = "Installations"
 $Mode.Innertext = "Absolute"
 
 [void]$Result.AppendChild($Channel)
@@ -495,7 +495,7 @@ $LimitMaxError = $xmldoc.CreateElement('LimitMaxError')
 $Channel.InnerText = "Software Count Delta"
 $Value.Innertext = $installationDelta
 $Unit.InnerText = "Custom"
-$CustomUnit.Innertext = "Number of installations"
+$CustomUnit.Innertext = "Installations"
 $Mode.Innertext = "Absolute"
 $LimitMode.InnerText = "1"
 $LimitMinError.InnerText = "0"
@@ -526,7 +526,7 @@ $LimitMaxError = $xmldoc.CreateElement('LimitMaxError')
 $Channel.InnerText = "Illegal Installations"
 $Value.Innertext = $nrofillegals
 $Unit.InnerText = "Custom"
-$CustomUnit.Innertext = "Number of installations"
+$CustomUnit.Innertext = "Installations"
 $Mode.Innertext = "Absolute"
 $LimitMode.InnerText = "1"
 $LimitMinError.InnerText = "0"
@@ -580,7 +580,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 $ValueLookup =  $xmldoc.CreateElement('ValueLookup')
     
-$Channel.InnerText = "Number of software files"
+$Channel.InnerText = "Software files"
 $Unit.InnerText = "Custom"
 $Mode.Innertext = "Absolute"
 $ValueLookup.Innertext = 'SoftwareFiles'
