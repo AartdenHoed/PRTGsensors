@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 5.2"
+$ScriptVersion = " -- Version: 5.3"
 
 # COMMON coding
 CLS
@@ -88,6 +88,7 @@ function WriteXmlToScreen ([xml]$xml)
 $resultobj = [PSCustomObject] [ordered] @{deleted= 0;
                                           added = 0;
                                           readded = 0;
+                                          updated = 0;
                                           changed = 0;
                                           current = 0;
                                           illegal = 0;
@@ -362,21 +363,35 @@ if ((!$scripterror) -and ($invokable)) {
                         $DBresult.ProgramName.Trim() -eq $item.ProgramName.Trim() -and 
                         $DBresult.Parameter.Trim() -eq $item.Parameter.Trim()) {
                     $changed = $false
+                    $updated = $false
                 }
                 else {
-                    $changed = $true
+                    $matchpattern = $DBresult.DIrectoryTemplate + "$"
+                    if ($item.DirName.Trim() -match $matchpattern) {
+                        $changed = $false
+                        $updated = $true
+                    }
+                    else {
+                        $changed = $true
+                        $updated = $false
+                    }
                 }               
-                if ($changed) {
+                if ($changed -or $updated) {
                     # Service Changed
                     $olddirname = $DBresult.DirName
                     $oldprogramname = $DBresult.ProgramName
                     $oldparameter = $DBresult.Parameter
-                    $newstatus = "Changed"
+                    if ($changed) {
+                        $newstatus = "Changed"
+                    }
+                    else {
+                        $newstatus = "Updated"
+                    }
                     $oldstatus = $DBresult.ChangeState  
                     $startdate = $timestring                             
                 }
                 else {   
-                    # if service NOT changed 
+                    # if service NOT changed or updated
                     $olddirname = $DBresult.OldDirNAme
                     $oldprogramname = $DBresult.OldProgramName
                     $oldparameter = $DBresult.OldParameter
@@ -572,6 +587,14 @@ if (!$scripterror) {
         $resultobj.Changed = $DBresult.Item(0)
 
         $query = "Select Count(*)
+                        From dbo.Service
+                    WHERE SystemName = '" + $myhost + "' AND ChangeState = 'Updated'"  
+        $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
+                    -Query "$query" `
+                    -ErrorAction Stop 
+        $resultobj.Updated = $DBresult.Item(0)
+
+        $query = "Select Count(*)
                     From dbo.Service
                     WHERE SystemName = '" + $myhost + "' AND ChangeState = 'Added'"  
         $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
@@ -759,6 +782,32 @@ $LimitMaxError.InnerText = "0"
 [void]$Result.AppendChild($LimitMode) 
 [void]$Result.AppendChild($LimitMinError) 
 [void]$Result.AppendChild($LimitMaxError)     
+    
+[void]$PRTG.AppendChild($Result)
+
+# Service status (total number of updated services) 
+$Result = $xmldoc.CreateElement('Result')
+
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')    
+$Unit = $xmldoc.CreateElement('Unit')
+$CustomUnit = $xmldoc.CreateElement('CustomUnit')
+$Mode = $xmldoc.CreateElement('Mode')
+$LimitMode = $xmldoc.CreateElement('LimitMode')
+$LimitMinError = $xmldoc.CreateElement('LimitMinError')
+$LimitMaxError = $xmldoc.CreateElement('LimitMaxError')
+    
+$Channel.InnerText = "Total number of updated services"
+$Value.Innertext = $resultobj.updated
+$Unit.InnerText = "Custom"
+$CustomUnit.Innertext = "Services"
+$Mode.Innertext = "Absolute"
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($CustomUnit)
+[void]$Result.AppendChild($Mode)
     
 [void]$PRTG.AppendChild($Result)
 
