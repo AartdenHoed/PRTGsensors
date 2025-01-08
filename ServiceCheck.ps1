@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 5.3"
+$ScriptVersion = " -- Version: 5.3.1"
 
 # COMMON coding
 CLS
@@ -366,15 +366,25 @@ if ((!$scripterror) -and ($invokable)) {
                     $updated = $false
                 }
                 else {
-                    $matchpattern = $DBresult.DIrectoryTemplate + "$"
-                    if ($item.DirName.Trim() -match $matchpattern) {
-                        $changed = $false
-                        $updated = $true
+                    if ($DBresult.DirectoryTemplate -is [DBNull]) {
+                        $DBresult.DirectoryTemplate = ' '
+                    }
+                    if (($DBresult.DirectoryTemplate -ne $null) -and ($DBresult.DirectoryTemplate.Trim() -ne '')) {
+                        $matchpattern = $DBresult.DirectoryTemplate + "$"                                         
+                        if ($item.DirName.Trim() -match $matchpattern) {
+                            $changed = $false
+                            $updated = $true
+                        }
+                        else {
+                            $changed = $true
+                            $updated = $false
+                        }
                     }
                     else {
                         $changed = $true
                         $updated = $false
-                    }
+                    } 
+                    
                 }               
                 if ($changed -or $updated) {
                     # Service Changed
