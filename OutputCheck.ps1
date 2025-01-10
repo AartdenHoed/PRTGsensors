@@ -4,7 +4,7 @@
 )
 # $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.2.2"
+$ScriptVersion = " -- Version: 1.2.3"
 
 # COMMON coding
 CLS
@@ -219,7 +219,7 @@ if (!$scripterror) {
         $olist = @()
 
         foreach ($obj1 in $dirobj) {
-            $dslist = Get-ChildItem -Path $obj1.Path -File -Force | Select Name, FullName, DirectoryName, LastWriteTime
+            $dslist = Get-ChildItem -Path $obj1.Path -File -Force | Select Name, FullName, DirectoryName, LastWriteTime, Extension
 
             $myOLD = 0
             $myCurrent = 0
@@ -254,11 +254,12 @@ if (!$scripterror) {
                             $dshost = "<nocheck>"
                         }
                         default     {
+                            $dshost = "ADHC-2"
                             if ($directory.ToUpper() -eq "SECURITY") {
                                 $dshost = "<nocheck>"
                             }
-                            else {
-                                $dshost = "ADHC-2"
+                            if ($file.Extension.ToUpper() -eq ".API") {
+                                $dshost = "<nocheck>"   
                             }
 
 
