@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 5.3.1"
+$ScriptVersion = " -- Version: 5.3.2"
 
 # COMMON coding
 CLS
@@ -359,9 +359,15 @@ if ((!$scripterror) -and ($invokable)) {
                     -ErrorAction Stop
             if ($DBresult -ne $null) {                            
                 
+                if ($DBresult.Parameter -is [DBNull]) {
+                    $cparm = ''
+                }
+                else {
+                    $cparm = $DBresult.Parameter
+                }
                 if ($DBresult.Dirname.Trim() -eq $item.DirName.Trim() -and 
                         $DBresult.ProgramName.Trim() -eq $item.ProgramName.Trim() -and 
-                        $DBresult.Parameter.Trim() -eq $item.Parameter.Trim()) {
+                        $cparm.Trim() -eq $item.Parameter.Trim()) {
                     $changed = $false
                     $updated = $false
                 }
