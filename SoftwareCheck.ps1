@@ -9,7 +9,7 @@
 $myhost = $myhost.ToUpper()
 $logging = $logging.ToUpper()
 
-$ScriptVersion = " -- Version: 2.0.1"
+$ScriptVersion = " -- Version: 2.0.2"
 
 # COMMON coding
 CLS
@@ -339,7 +339,7 @@ if (!$scripterror) {
     # get number of installations on that computer
     $query = "Select SUM([Count])
                 From dbo.Installation
-                WHERE ComputerID = " + $computerID + " AND EndDatetime is NULL"  
+                WHERE ComputerID = " + $computerID + " AND EndDatetime is NULL and ComponentID not in (Select ComponentID from dbo.Component where Origin = 'Manual')"  
     $DBresult = invoke-sqlcmd -ServerInstance '.\sqlexpress' -Database "Sympa" `
                 -Query "$query" `
                 -ErrorAction Stop 
