@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 5.3.2"
+$ScriptVersion = " -- Version: 5.3.3"
 
 # COMMON coding
 CLS
@@ -376,7 +376,7 @@ if ((!$scripterror) -and ($invokable)) {
                         $DBresult.DirectoryTemplate = ' '
                     }
                     if (($DBresult.DirectoryTemplate -ne $null) -and ($DBresult.DirectoryTemplate.Trim() -ne '')) {
-                        $matchpattern = $DBresult.DirectoryTemplate + "$"                                         
+                        $matchpattern = $DBresult.DirectoryTemplate.Trim() + "$"                                         
                         if ($item.DirName.Trim() -match $matchpattern) {
                             $changed = $false
                             $updated = $true
