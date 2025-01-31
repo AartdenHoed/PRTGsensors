@@ -8,7 +8,7 @@
 
 $myhost = $myhost.ToUpper()
 
-$ScriptVersion = " -- Version: 5.3.3"
+$ScriptVersion = " -- Version: 5.3.4"
 
 # COMMON coding
 CLS
@@ -430,6 +430,18 @@ if ((!$scripterror) -and ($invokable)) {
                             }  
                             else {
                                 $newstatus = "Changed" 
+                                $oldstatus = $DBresult.OldChangeState
+                            }                             
+                       
+                        }
+                        "Updated" {    
+                            $startdate = $DBresult.StartDate                        
+                            if ($DBresult.StartDate -lt $CheckDate.AddHours(-32)) {
+                                $newstatus = "Current" 
+                                $oldstatus = "Updated"                                
+                            }  
+                            else {
+                                $newstatus = "Updated" 
                                 $oldstatus = $DBresult.OldChangeState
                             }                             
                        
