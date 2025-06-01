@@ -1,4 +1,4 @@
-﻿$Version = " -- Version: 1.4.1"
+﻿$Version = " -- Version: 1.5"
 
 # COMMON coding
 CLS
@@ -111,19 +111,21 @@ do {
     $Scriptmsg = "*** STARTED *** " + $mypath + " -- PowerShell script " + $MyName + $Version + $Datum + $Tijd +$Node
     Write-Information $Scriptmsg 
     Set-Content $Tempfile $Scriptmsg -force
-    foreach ($entry in $InitObj.MessageList){
-        Report $entry.Level $entry.Message $StatusObj $Tempfile
+    if ($loop -le 1) {
+        foreach ($entry in $InitObj.MessageList){
+            Report $entry.Level $entry.Message $StatusObj $Tempfile
+        }
     }
-
 
     Report "I" "Process name = $ProcessName, proces ID = $ProcessID" $StatusObj $Tempfile
 
-    Report "I"  "Iteration number $loop" $StatusObj $Tempfile
+    Report "I"  "Iteration number $loop ($errorcount errors until now)" $StatusObj $Tempfile
         
     try {
 
         Report "I" "Started... sensor script = $sensorscript" $StatusObj $Tempfile
         $Sensor = & "$Sensorscript" YES $ADHC_Computer 9000
+        Report "I" "Ended... sensor script = $sensorscript" $StatusObj $Tempfile
 
     }
     catch {
@@ -139,7 +141,7 @@ do {
     finally {
        
         if  ($StatusObj.scripterror) {
-             $dt = Get-Date
+            $dt = Get-Date
             $jobline = $ADHC_Computer + "|" + $process + "|" + "9" + "|" + $version + "|" + $dt.ToString("dd-MM-yyyy HH:mm:ss")
             Set-Content $jobstatus $jobline
        
@@ -152,7 +154,7 @@ do {
             Report "E" "Dump info = $dump" $StatusObj $Tempfile
             }
         else {
-            Report "I" ">>> Script (iteration) ended normally $Datum $Tijd" $StatusObj $Tempfile
+            Report "I" ">>> Iteration ended normally $Datum $Tijd" $StatusObj $Tempfile
             Report "N" " " $StatusObj $Tempfile
    
             $dt = Get-Date
@@ -165,12 +167,8 @@ do {
         try { #  copy temp file
         
             $deffile = $ADHC_OutputDirectory + $ADHC_LocalCpuTemperature.Directory + $ADHC_LocalCpuTemperature.Name 
-            if ($loop -eq 1) {
-                $CopMov = & $ADHC_CopyMoveScript $TempFile $deffile "MOVE" "REPLACE" $TempFile  
-            }
-            else {
-                $CopMov = & $ADHC_CopyMoveScript $TempFile $deffile "MOVE" "APPEND" $TempFile 
-            }
+            $CopMov = & $ADHC_CopyMoveScript $TempFile $deffile "COPY" "REPLACE" $TempFile  
+            
         }
         Catch {
             $ErrorMessage = $_.Exception.Message
