@@ -1,10 +1,10 @@
 ﻿param (
-    [string]$LOGGING = "NO", 
+    [string]$LOGGING = "NO",
     [int]$sensorid = 77 
 )
-# $LOGGING = 'YES'
+$LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.2.3"
+$ScriptVersion = " -- Version: 1.2.4"
 
 # COMMON coding
 CLS
@@ -140,6 +140,11 @@ if (!$scripterror) {
             $spl = $bootfile.Name -split "_"
             $hostname = $spl[0].ToUpper()
 
+            if ($n.ToUpper().Contains("EDIT CONFLICT")) {
+                # skip edit conflict files
+                continue 
+            }
+
             if ($ADHC_Hoststring.ToUpper().Contains($hostname)) {
                 # Write-Host "$Hostname found"
                 $illegalbootfile = $false
@@ -260,7 +265,7 @@ if (!$scripterror) {
                             }
                             if ($file.Extension.ToUpper() -eq ".API") {
                                 $dshost = "<nocheck>"   
-                            }
+                            }                          
 
 
                         }
@@ -268,7 +273,7 @@ if (!$scripterror) {
                     }
 
                 }
-
+               
                 if ($dshost -eq "<nocheck>") {
                    
                     $dsstate = "U"
