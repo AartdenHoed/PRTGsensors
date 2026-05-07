@@ -4,7 +4,7 @@
 )
 $LOGGING = 'YES'
 
-$ScriptVersion = " -- Version: 1.2.4"
+$ScriptVersion = " -- Version: 1.2.5"
 
 # COMMON coding
 CLS
@@ -261,6 +261,9 @@ if (!$scripterror) {
                         default     {
                             $dshost = "ADHC-2"
                             if ($directory.ToUpper() -eq "SECURITY") {
+                                $dshost = "<nocheck>"
+                            }
+                            if ($directory.ToUpper() -eq "ALPHAESS") {
                                 $dshost = "<nocheck>"
                             }
                             if ($file.Extension.ToUpper() -eq ".API") {
