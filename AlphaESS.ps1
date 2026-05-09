@@ -6,7 +6,7 @@
 
 $logging = $logging.ToUpper()
 
-$ScriptVersion = " -- Version: 1.2.1"
+$ScriptVersion = " -- Version: 1.5"
 
 # COMMON coding
 CLS
@@ -150,9 +150,22 @@ $VandaagNetafname     =  $response.data.einput
 $VandaagOpgeladen     =  $response.data.echarge
 $VandaagOntladen      =  $response.data.edischarge
 
-$TotaalOpwekking           =  $response.data.epvtotal
-$TotaalZelfverbruikPerc    =  $response.data.eselfConsumption
-$TotaalZelfvoorzieningPerc = $response.data.eselfSufficiency
+$VandaagTotaalverbruik1 = $VandaagOpgewekt + $VandaagNetafname + $VandaagOntladen 
+$VandaagTotaalverbruik2 = $VandaagVerbruikt + $Vandaagteruggeleverd + $VandaagOpgeladen 
+
+$TotaalOpgewekt   = $response.data.epvtotal 
+$TotaalZelfverbruikPerc = 100 * $response.data.eselfConsumption 
+$TotaalZelfvoorzieningPerc = 100 * $response.data.eselfSufficiency 
+
+$EssStart = Get-Date -Year 2026 -Month 1 -Day 9
+$EssNow = Get-Date
+$EssEnd = $EssStart.AddYears(15)
+$EssTotalCost = 14000
+$TotalDays = (New-TimeSpan -Start $EssStart -End $EssEnd).Days
+$ActualDays = (New-TimeSpan -Start $EssStart -End $EssNow).Days
+
+$EssActualCost = $ActualDays/$TotalDays *$EssTotalCost
+$VirtualTarif = $EssActualCost / ($TotaalOpgewekt * $TotaalZelfverbruikPerc / 100)
 
 if (!$scripterror) {
     try {
@@ -225,7 +238,7 @@ if (!$scripterror) {
 
 #$response
 #$response.data
-#write-host "Oplaadpercentage      " $response.data.soc
+
 $oplaadpercentage = $response.data.soc
 $zonnelevering = $response.data.ppv
 $pbat = $response.data.pbat
@@ -247,6 +260,8 @@ else {
     $gridafname = $pgrid *-1
     $gridlevering = 0
 }
+$HuidigVermogen1 = $zonnelevering + $batterijlevering + $gridlevering
+$HuidigVermogen2 = $huisafname + $batterijafname + $gridafname
 
 if ($log) {
     Add-Content $logfile "==> Write XML"
@@ -269,7 +284,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Oplaadpercentage"
-$Value.InnerText = $oplaadpercentage
+$Value.InnerText = [math]::round($oplaadpercentage,2)
 $Float.InnerText = "1"
 $Unit.InnerText = "Percent"
 $Mode.Innertext = "Absolute"
@@ -295,7 +310,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Aanvoer vanuit het net"
-$Value.InnerText = $gridlevering
+$Value.InnerText = [math]::round($gridlevering,0)
 $Float.InnerText = "1"
 $Unit.InnerText = "Custom"
 $CustomUnit.InnerText = "Watt"
@@ -322,7 +337,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Aanvoer vanuit de zonnepanelen"
-$Value.InnerText = $zonnelevering
+$Value.InnerText = [math]::round($zonnelevering,0)
 $Float.InnerText = "1"
 $Unit.InnerText = "Custom"
 $CustomUnit.InnerText = "Watt"
@@ -349,7 +364,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Aanvoer vanuit de batterij"
-$Value.InnerText = $batterijlevering
+$Value.InnerText = [math]::round($batterijlevering,0)
 $Float.InnerText = "1"
 $Unit.InnerText = "Custom"
 $CustomUnit.InnerText = "Watt"
@@ -376,7 +391,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Levering aan het net"
-$Value.InnerText = $gridafname
+$Value.InnerText = [math]::round($gridafname,0)
 $Float.InnerText = "1"
 $Unit.InnerText = "Custom"
 $CustomUnit.InnerText = "Watt"
@@ -403,7 +418,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Levering aan het huis"
-$Value.InnerText = $huisafname
+$Value.InnerText = [math]::round($huisafname,0)
 $Float.InnerText = "1"
 $Unit.InnerText = "Custom"
 $CustomUnit.InnerText = "Watt"
@@ -430,7 +445,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Levering aan de batterij"
-$Value.InnerText = $batterijafname
+$Value.InnerText = [math]::round($batterijafname,0)
 $Float.InnerText = "1"
 $Unit.InnerText = "Custom"
 $CustomUnit.InnerText = "Watt"
@@ -460,7 +475,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Vandaag netafname"
-$Value.InnerText = $VandaagNetafname 
+$Value.InnerText = [math]::round($VandaagNetafname,2) 
 $Float.InnerText = "1"
 $Unit.InnerText = "Custom"
 $CustomUnit.InnerText = "KwH"
@@ -487,7 +502,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Vandaag opgewekt"
-$Value.InnerText = $VandaagOpgewekt
+$Value.InnerText = [math]::round($VandaagOpgewekt,2)
 $Float.InnerText = "1"
 $Unit.InnerText = "Custom"
 $CustomUnit.InnerText = "KwH"
@@ -514,7 +529,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Vandaag batterij ontladen"
-$Value.InnerText = $VandaagOntladen      
+$Value.InnerText = [math]::round($VandaagOntladen,2)      
 $Float.InnerText = "1"
 $Unit.InnerText = "Custom"
 $CustomUnit.InnerText = "KwH"
@@ -541,7 +556,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Vandaag teruglevering net"
-$Value.InnerText = $Vandaagteruggeleverd
+$Value.InnerText = [math]::round($Vandaagteruggeleverd,2)
 $Float.InnerText = "1"
 $Unit.InnerText = "Custom"
 $CustomUnit.InnerText = "KwH"
@@ -568,7 +583,7 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Vandaag verbruikt"
-$Value.InnerText = $VandaagVerbruikt
+$Value.InnerText = [math]::round($VandaagVerbruikt,2)
 $Float.InnerText = "1"
 $Unit.InnerText = "Custom"
 $CustomUnit.InnerText = "KwH"
@@ -595,10 +610,112 @@ $Mode = $xmldoc.CreateElement('Mode')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 
 $Channel.InnerText = "Vandaag batterij opgeladen"
-$Value.InnerText = $VandaagOpgeladen
+$Value.InnerText = [math]::round($VandaagOpgeladen,2)
 $Float.InnerText = "1"
 $Unit.InnerText = "Custom"
 $CustomUnit.InnerText = "KwH"
+$Mode.Innertext = "Absolute"
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Float)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($CustomUnit)
+[void]$Result.AppendChild($NotifyChanged)
+[void]$Result.AppendChild($Mode)
+    
+[void]$PRTG.AppendChild($Result)
+
+# Totaal opgewekt
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')
+$Float = $xmldoc.CreateElement('Float')
+$Unit = $xmldoc.CreateElement('Unit')
+$CustomUnit = $xmldoc.CreateElement('CustomUnit')
+$Mode = $xmldoc.CreateElement('Mode')
+$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+
+$Channel.InnerText = "Totaal opgewekt"
+$Value.InnerText = [math]::round($TotaalOpgewekt,2)
+$Float.InnerText = "1"
+$Unit.InnerText = "Custom"
+$CustomUnit.InnerText = "KwH"
+$Mode.Innertext = "Absolute"
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Float)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($CustomUnit)
+[void]$Result.AppendChild($NotifyChanged)
+[void]$Result.AppendChild($Mode)
+    
+[void]$PRTG.AppendChild($Result)
+
+# Eigen verbruik (%)
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')
+$Float = $xmldoc.CreateElement('Float')
+$Unit = $xmldoc.CreateElement('Unit')
+$Mode = $xmldoc.CreateElement('Mode')
+$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+
+$Channel.InnerText = "Eigen verbruik"
+$Value.InnerText = [math]::round($TotaalZelfverbruikPerc,2)
+$Float.InnerText = "1"
+$Unit.InnerText = "Percent"
+$Mode.Innertext = "Absolute"
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Float)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($NotifyChanged)
+[void]$Result.AppendChild($Mode)
+    
+[void]$PRTG.AppendChild($Result)
+
+# Zelfvoorzienendheid (%)
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')
+$Float = $xmldoc.CreateElement('Float')
+$Unit = $xmldoc.CreateElement('Unit')
+$Mode = $xmldoc.CreateElement('Mode')
+$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+
+$Channel.InnerText = "Zelfvoorzienendheid"
+$Value.InnerText = [math]::round($TotaalZelfvoorzieningPerc,2)
+$Float.InnerText = "1"
+$Unit.InnerText = "Percent"
+$Mode.Innertext = "Absolute"
+
+[void]$Result.AppendChild($Channel)
+[void]$Result.AppendChild($Value)
+[void]$Result.AppendChild($Float)
+[void]$Result.AppendChild($Unit)
+[void]$Result.AppendChild($NotifyChanged)
+[void]$Result.AppendChild($Mode)
+    
+[void]$PRTG.AppendChild($Result)
+
+# Virtueel tarief
+$Result = $xmldoc.CreateElement('Result')
+$Channel = $xmldoc.CreateElement('Channel')
+$Value = $xmldoc.CreateElement('Value')
+$Float = $xmldoc.CreateElement('Float')
+$Unit = $xmldoc.CreateElement('Unit')
+$CustomUnit = $xmldoc.CreateElement('CustomUnit')
+$Mode = $xmldoc.CreateElement('Mode')
+$NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
+
+$Channel.InnerText = "Virtueel tarief"
+$Value.InnerText = [math]::round($VirtualTarif,2)
+$Float.InnerText = "1"
+$Unit.InnerText = "Custom"
+$CustomUnit.InnerText = "Euro/Kwh"
 $Mode.Innertext = "Absolute"
 
 [void]$Result.AppendChild($Channel)
@@ -623,7 +740,7 @@ if ($scripterror) {
 else {
     $Errorvalue.InnerText = "0"  
     $formattime = $d.ToString("dd-MM-yyyy HH:mm:ss")
-    $ErrorText.InnerText = "$systeemnaam heeft status '$systeemstatus' *** Timestamp: $formattime *** Script$scriptversion"
+    $ErrorText.InnerText = "$systeemnaam status '$systeemstatus' *** Huidig vermogen = $HuidigVermogen1/$HuidigVermogen2 Watt *** Verbruik vandaag = $VandaagTotaalverbruik1/$VandaagTotaalverbruik2 KwH *** Timestamp: $formattime *** Script$scriptversion"
 } 
 [void]$PRTG.AppendChild($ErrorValue)
 [void]$PRTG.AppendChild($ErrorText)
@@ -637,6 +754,3 @@ if ($log) {
     $thisdate = Get-Date
     Add-Content $logfile "==> END $thisdate"
 }
-
-
-
