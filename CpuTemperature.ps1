@@ -1,10 +1,10 @@
 ﻿param (
     [string]$LOGGING = "YES", 
-    [string]$myHost  = "NONE" ,
+    [string]$myHost  = "NONE",
     [int]$sensorid = 77 
 )
 # $LOGGING = 'YES'
-# $myHost = "hoesto"
+$myHost = "adhc-2"
 
 function Running-Elevated
 {
@@ -24,9 +24,9 @@ function Running-Elevated
  } 
 
 $myhost = $myhost.ToUpper()
+$logging = $logging.ToUpper()
 
-
-$ScriptVersion = " -- Version: 1.10.1"
+$ScriptVersion = " -- Version: 1.10.4"
 
 # COMMON coding
 CLS
@@ -55,6 +55,8 @@ if ($Initobj.AbEnd) {
 }
 
 if ($LOGGING -eq "YES") {$log = $true} else {$log = $false}
+
+# If LOGGING=YES create sensorlog if nog existent, and INIT it. 
 
 if ($log) {
     $dir = $ADHC_OutputDirectory + $ADHC_PRTGlogs
@@ -101,8 +103,8 @@ function WriteXmlToScreen ([xml]$xml)
 }
 
 # END OF COMMON CODING
-# Get Node status
 
+# Check if running as admin
 $el = Running-Elevated
 
 if ($log) {
@@ -117,6 +119,7 @@ if ($log) {
     }
 }
 
+# Get Node status
 if (!$scripterror) {
     try {
         if ($log) {
@@ -147,10 +150,20 @@ if (!$scripterror) {
 
 }
 
+# Run script (remote or via local running agent) to get spu temperature
+
 $CpuTempScript = $mypath + "CpuTemperature2.PS1"
 $duration = 0
 
-if (!$scripterror) {
+if (($myhost -eq $ADHC_Computer) -and (!$el.Administrator)) {
+    $self = $true
+}
+else {
+    $self = $false
+}
+
+if ((!$scripterror) -and (!$Self)) {
+# if this runs local, use near realtime info form dataset (ther emust be a local agents that refreshes this info
     try {
         # CpuTemp info of machine
         if ($log) {
@@ -257,7 +270,12 @@ if (!$scripterror) {
             
             
             if ($log) {
-                Add-Content $logfile "==> Node is down, get info from dataset"
+                if ($self) {
+                    Add-Content $logfile "==> Node $myhost is myself (not running admin), get near realtime info from dataset"   
+                }
+            else {
+                Add-Content $logfile "==> Node is not invokable, get info from dataset"
+                }
             }
             $CpuTemplines = Get-Content $CpuTempInfoFile
             
@@ -378,7 +396,7 @@ if ($invokable) {
 else { 
    $Value.Innertext = $nstat.StatusCode
    $livestat = $nstat.Status + ", Not Invokable"
-   if (-not($el.Administrator) -and ($myHost -eq $ADHC_Computer.ToUpper()) -and ($leeftijd -le 10)) {
+   if ($self -and ($leeftijd -le 10)) {
        $online = "near realtime info"
    }
    else {

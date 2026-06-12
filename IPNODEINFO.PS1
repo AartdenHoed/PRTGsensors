@@ -2,13 +2,13 @@
      [string]$InputIP = "iets"  ,
      [string]$LOGGING = "YES"
 )
-#$inputip = "192.168.178.201"
+#$inputip = "ADHC-2"
 
 $NumericAddress = $inputip -match "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}"
 
 $MyHost = $inputip.ToUpper()
 
-$ScriptVersion = " -- Version: 1.4.1"
+$ScriptVersion = " -- Version: 1.4.2"
 
 # COMMON coding
 
@@ -251,14 +251,9 @@ if (!$scripterror) {
                     $UpDown = "Down"    
                 } 
                 else {
-                    if ($diff.TotalMinutes -gt 6) {
-                        $UpDown = "Stopping?"
-                    }
-                    else {
-                        $Updown = "Up"
-                    }
-
+                    $Updown = "Up"
                 }
+                             
             
                 if ($log) {
                     $bt = $starttime.ToString()
