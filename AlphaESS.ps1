@@ -1,12 +1,12 @@
 ﻿param (
-    [string]$LOGGING = "NO", 
+    [string]$LOGGING = "YES", 
     [int]$sensorid = 77 
 )
 # $LOGGING = 'YES'
 
 $logging = $logging.ToUpper()
 
-$ScriptVersion = " -- Version: 1.5"
+$ScriptVersion = " -- Version: 1.5.1"
 
 # COMMON coding
 CLS
@@ -114,7 +114,7 @@ if (!$scripterror) {
         $parm = "?" + "sysSn=" + "ALD081025090564"
         $verb = "/getSumDataForCustomer"
         $uri = $baseUrl + $verb + $parm
-        $response = Invoke-RestMethod -Method Get `
+        $response1 = Invoke-RestMethod -Method Get `
             -Uri "$uri" `
             -Headers $headers `
             -ContentType 'application/json'
@@ -122,8 +122,8 @@ if (!$scripterror) {
         if ($log) {
              Add-Content $logfile " "
              Add-Content $logfile $uri   
-             Add-Content $logfile $response
-             Add-Content $logfile $response.data  
+             Add-Content $logfile $response1
+             Add-Content $logfile $response1.data  
         }
 
     }
@@ -141,21 +141,21 @@ if (!$scripterror) {
     }
 }
 
-#$response
-#$response.data
-$VandaagOpgewekt      =  $response.data.epvtoday
-$VandaagVerbruikt     =  $response.data.eload
-$Vandaagteruggeleverd =  $response.data.eoutput
-$VandaagNetafname     =  $response.data.einput
-$VandaagOpgeladen     =  $response.data.echarge
-$VandaagOntladen      =  $response.data.edischarge
+#$response1
+#$response1.data
+$VandaagOpgewekt      =  $response1.data.epvtoday
+$VandaagVerbruikt     =  $response1.data.eload
+$Vandaagteruggeleverd =  $response1.data.eoutput
+$VandaagNetafname     =  $response1.data.einput
+$VandaagOpgeladen     =  $response1.data.echarge
+$VandaagOntladen      =  $response1.data.edischarge
 
 $VandaagTotaalverbruik1 = $VandaagOpgewekt + $VandaagNetafname + $VandaagOntladen 
 $VandaagTotaalverbruik2 = $VandaagVerbruikt + $Vandaagteruggeleverd + $VandaagOpgeladen 
 
-$TotaalOpgewekt   = $response.data.epvtotal 
-$TotaalZelfverbruikPerc = 100 * $response.data.eselfConsumption 
-$TotaalZelfvoorzieningPerc = 100 * $response.data.eselfSufficiency 
+$TotaalOpgewekt   = $response1.data.epvtotal 
+$TotaalZelfverbruikPerc = 100 * $response1.data.eselfConsumption 
+$TotaalZelfvoorzieningPerc = 100 * $response1.data.eselfSufficiency 
 
 $EssStart = Get-Date -Year 2026 -Month 1 -Day 9
 $EssNow = Get-Date
@@ -173,7 +173,7 @@ if (!$scripterror) {
         $parm = ""
         $verb = "/getEssList"
         $uri = $baseUrl + $verb + $parm
-        $response = Invoke-RestMethod -Method Get `
+        $response2 = Invoke-RestMethod -Method Get `
             -Uri "$uri" `
             -Headers $headers `
             -ContentType 'application/json'
@@ -181,8 +181,8 @@ if (!$scripterror) {
         if ($log) {
             Add-Content $logfile " "
             Add-Content $logfile $uri   
-            Add-Content $logfile $response
-            Add-Content $logfile $response.data    
+            Add-Content $logfile $response2
+            Add-Content $logfile $response2.data    
         }
     }
     Catch {
@@ -199,10 +199,10 @@ if (!$scripterror) {
     }
 }
 
-#$response
-#$response.data
-$systeemnaam = $response.data.sysSn
-$systeemstatus = $response.data.emsstatus
+#$response2
+#$response2.data
+$systeemnaam = $response2.data.sysSn
+$systeemstatus = $response2.data.emsstatus
 
 if (!$scripterror) {
     try {
@@ -210,7 +210,7 @@ if (!$scripterror) {
         $parm = "?" + "sysSn=" + "ALD081025090564"
         $verb = "/getLastPowerData"
         $uri = $baseUrl + $verb + $parm
-        $response = Invoke-RestMethod -Method Get `
+        $response3 = Invoke-RestMethod -Method Get `
             -Uri "$uri" `
             -Headers $headers `
             -ContentType 'application/json'
@@ -218,8 +218,8 @@ if (!$scripterror) {
         if ($log) {  
             Add-Content $logfile " "
             Add-Content $logfile $uri   
-            Add-Content $logfile $response
-            Add-Content $logfile $response.data    
+            Add-Content $logfile $response3
+            Add-Content $logfile $response3.data    
         }
     }
     Catch {
@@ -236,12 +236,12 @@ if (!$scripterror) {
     }
 }
 
-#$response
-#$response.data
+#$response3
+#$response3.data
 
-$oplaadpercentage = $response.data.soc
-$zonnelevering = $response.data.ppv
-$pbat = $response.data.pbat
+$oplaadpercentage = $response3.data.soc
+$zonnelevering = $response3.data.ppv
+$pbat = $response3.data.pbat
 if ($pbat -gt 0) {
     $batterijlevering = $pbat
     $batterijafname = 0
@@ -250,8 +250,8 @@ else {
     $batterijafname = $pbat * -1
     $batterijlevering = 0
 }
-$huisafname = $response.data.pload
-$pgrid = $response.data.pgrid
+$huisafname = $response3.data.pload
+$pgrid = $response3.data.pgrid
 if ($pgrid -gt 0) {
     $gridlevering = $pgrid
     $gridafname = 0
