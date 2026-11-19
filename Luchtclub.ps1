@@ -1,10 +1,10 @@
 ﻿param (
-    [string]$LOGGING = "NO", 
+    [string]$LOGGING = "YES", 
     [int]$sensorid = 77 
 )
 # $LOGGING = 'NO'
 
-$ScriptVersion = " -- Version: 1.2.1"
+$ScriptVersion = " -- Version: 1.2.2"
 
 # COMMON coding
 CLS
@@ -73,6 +73,9 @@ function WriteXmlToScreen ([xml]$xml)
     $XmlWriter.Flush();
     $StringWriter.Flush();
     Write-Host $StringWriter.ToString();
+    if ($log) {
+        Add-Content $logfile $StringWriter.ToString()
+    }
 }
 
 # END OF COMMON CODING
