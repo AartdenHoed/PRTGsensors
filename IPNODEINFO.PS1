@@ -2,13 +2,13 @@
      [string]$InputIP = "iets"  ,
      [string]$LOGGING = "YES"
 )
-#$inputip = "ADHC-2"
+# $inputip = "hoesto"
 
 $NumericAddress = $inputip -match "[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}"
 
 $MyHost = $inputip.ToUpper()
 
-$ScriptVersion = " -- Version: 1.4.2"
+$ScriptVersion = " -- Version: 1.4.3"
 
 # COMMON coding
 
@@ -120,18 +120,19 @@ if (!$scripterror) {
             AddMessage "I" "Perform PING" $ResultObject
         }
         try {
-            $ipnum = $null
+            
             if (!$NumericAddress) {
                 $ipx = [System.Net.Dns]::GetHostAddresses($InputIp.Trim())
                 if ($ipx) {
                     # write-host "ipx"
-                    $Ipnum = $ipx.IPAddressToSTring
-                    if ($ipnum.count) {
-                        $ResultObject.IPaddress = $ipnum[0] 
+                    
+                    if ($ipx.Count) {
+                        $ResultObject.IPaddress = $ipx[0].IPAddressToString
                     }
                     else {
-                        $ResultObject.IPaddress = $ipnum
-                    }                   
+                        $ResultObject.IPaddress = $ipx.IPAddressToString
+                    }
+                                       
                 }
                 else {
                     # write-host "no ipx"
@@ -150,6 +151,7 @@ if (!$scripterror) {
             
         }
         catch {
+            # Write-Warning  "Catch 1"
             $ResultObject.IPpingable = $false
             $ResultObject.IPaddress = $inputip
         }
@@ -248,7 +250,12 @@ if (!$scripterror) {
                 $diff = NEW-TIMESPAN –Start $stoptime –End $now
 
                 if ($diff.TotalMinutes -gt 10) {
-                    $UpDown = "Down"    
+                    if ($diff.TotalMinutes -lt 15) {
+                        $UpDown = "Shutting down"   
+                    }
+                    else {
+                        $UpDown = "Down"
+                    } 
                 } 
                 else {
                     $Updown = "Up"
