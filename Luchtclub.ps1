@@ -4,7 +4,7 @@
 )
 # $LOGGING = 'NO'
 
-$ScriptVersion = " -- Version: 1.2.2"
+$ScriptVersion = " -- Version: 1.2.3"
 
 # COMMON coding
 CLS
@@ -204,7 +204,7 @@ foreach ($item in $metingen) {
     $Mode = $xmldoc.CreateElement('Mode')
     $FLoat = $xmldoc.CreateElement('Float')    
 
-    $Channel.InnerText = $item.Description + " (" + $item.Name + ")"
+    $Channel.InnerText = ($item.Description + " (" + $item.Name + ")").Replace("<","tot")
     $Unit.InnerText = "Custom"
     $Customunit.Innertext = $item.unit
     $Value.InnerText = $item.Lastresult
