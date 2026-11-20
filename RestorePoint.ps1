@@ -4,12 +4,12 @@
     [int]$sensorid = 77 
 )
 # $LOGGING = 'YES'
-# $myHost = "ADHC-2"
+# $myHost = "hoesto"
 
 $myhost = $myhost.ToUpper()
 $logging = $logging.ToUpper()
 
-$ScriptVersion = " -- Version: 1.2"
+$ScriptVersion = " -- Version: 1.2.2"
 
 # COMMON coding
 CLS
@@ -161,7 +161,7 @@ if (!$scripterror) {
             $RP_eventtype = $split[2] 
             $RP_count = $split[3]           
 
-            $diff = NEW-TIMESPAN –Start $now –End $RP_time
+            $diff = NEW-TIMESPAN –Start $RP_time –End $now
             $RP_agedays = $diff.Days
 
             if (!$up) {
@@ -299,8 +299,8 @@ $Mode.Innertext = "Absolute"
 $Value.Innertext = $RP_count
 
 $LimitMode.InnerText = "1"
-$LimitMinWarning.InnerText = 1
-$LimitMinError.Innertext = 0
+$LimitMinWarning.InnerText = 2
+$LimitMinError.Innertext = 1
 
 [void]$Result.AppendChild($Channel)
 [void]$Result.AppendChild($Value)
