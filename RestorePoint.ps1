@@ -9,7 +9,7 @@
 $myhost = $myhost.ToUpper()
 $logging = $logging.ToUpper()
 
-$ScriptVersion = " -- Version: 1.2.2"
+$ScriptVersion = " -- Version: 1.2.4"
 
 # COMMON coding
 CLS
@@ -163,10 +163,7 @@ if (!$scripterror) {
 
             $diff = NEW-TIMESPAN –Start $RP_time –End $now
             $RP_agedays = $diff.Days
-
-            if (!$up) {
-                $RP_agedays = -1
-            }
+                        
         }
 
     }   
@@ -289,7 +286,7 @@ $Value = $xmldoc.CreateElement('Value')
 $CustomUnit = $xmldoc.CreateElement('CustomUnit')
 $NotifyChanged = $xmldoc.CreateElement('NotifyChanged')
 $LimitMode = $xmldoc.CreateElement('LimitMode')
-$LimitMinWarning = $xmldoc.CreateElement('LimitMinWarning')
+# $LimitMinWarning = $xmldoc.CreateElement('LimitMinWarning')
 $LimitMinError = $xmldoc.CreateElement('LimitMinError')
 
 $Channel.InnerText = "Number of Restore Points"
@@ -299,7 +296,7 @@ $Mode.Innertext = "Absolute"
 $Value.Innertext = $RP_count
 
 $LimitMode.InnerText = "1"
-$LimitMinWarning.InnerText = 2
+# $LimitMinWarning.InnerText = 2
 $LimitMinError.Innertext = 1
 
 [void]$Result.AppendChild($Channel)
@@ -311,7 +308,7 @@ $LimitMinError.Innertext = 1
 [void]$Result.AppendChild($Mode)
 
 [void]$Result.AppendChild($LimitMode) 
-[void]$Result.AppendChild($LimitMinWarning)
+# [void]$Result.AppendChild($LimitMinWarning)
 [void]$Result.AppendChild($LimitMinError)
     
 [void]$PRTG.AppendChild($Result)
